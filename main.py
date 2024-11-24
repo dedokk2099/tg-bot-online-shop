@@ -1,1 +1,1 @@
-#Главный файл
+from database import *
