@@ -1,6 +1,6 @@
 class EnterController:
-    def __init__:
+    def __init__():
         super().__init__()
 
-    def is_role():
+    #def is_role():
 
