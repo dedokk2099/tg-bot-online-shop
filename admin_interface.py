@@ -192,50 +192,71 @@ class AdminInterface:
             self.bot.send_message(message.chat.id, "Добавить новый товар?", reply_markup=markup)
             return
 
+    def translate_attribute(self, attribute_ru):
+        translation = {
+            'Название': 'name',
+            'Цена': 'price',
+            'Описание': 'description',
+            'Количество': 'quantity'
+        }
+        return translation.get(attribute_ru)
+
     def handle_attribute_value(self, message):
         chat_id = message.chat.id
-        state = self.user_states.get(chat_id, {}).get('state')
-        if state == 1:
-            product_index = self.user_states[chat_id].get('product_index')
-            attribute = self.user_states[chat_id].get('attribute')
-            self.products[product_index][attribute] = message.text
-            del self.user_states[chat_id]
-            self.show_catalog(message)
+        state_data = self.user_states.get(chat_id)
+        if state_data and state_data.get('state') == 1:
+            product_index = state_data.get('product_index')
+            attribute_ru = state_data.get('attribute') 
+            if product_index is not None and attribute_ru is not None:
+                try:
+                    attribute_en = self.translate_attribute(attribute_ru)
+                    new_value = message.text
+                    self.products[product_index][attribute_en] = new_value
+                    self.bot.send_message(chat_id, "Атрибут изменён. Что ещё изменить?", reply_markup=self.generate_edit_keyboard())
+                    self.bot.register_next_step_handler(message, self.handle_next_edit)
+                    if 'attribute' in state_data:
+                        del state_data['attribute']
+                except (KeyError, IndexError, AttributeError) as e:
+                    self.bot.send_message(chat_id, f"Ошибка при обновлении товара: {e}")
+                    self.user_states.pop(chat_id, None)  # Очищаем состояние при ошибке
+            else:
+                self.bot.send_message(chat_id, "Ошибка: Недостаточно данных.")
+        else:
+            self.bot.send_message(chat_id, "Ошибка: Нет текущего состояния редактирования.")
 
     def handle_edit_attribute(self, message):
         chat_id = message.chat.id
-        state = self.user_states.get(chat_id, {}).get('state')
-        if state == 1:
-            product_index = self.user_states[chat_id].get('product_index')
+        state_data = self.user_states.get(chat_id)
+        if state_data and state_data.get('state') == 1:
+            product_index = state_data.get('product_index')
             if product_index is None:
-                self.bot.send_message(chat_id, "Ошибка: Товар не выбран.")
+                self.bot.send_message(chat_id, "Ошибка: Товар не выбран")
                 return
-                
-            attribute = message.text
-            if attribute in ['Название', 'Цена', 'Описание']:
-                self.user_states[chat_id]['attribute'] = attribute
-                self.bot.send_message(chat_id, f"Введите новое значение для {attribute}:")
+            attribute_ru = message.text
+            if attribute_ru in ['Название', 'Цена', 'Описание','Количество']:
+                self.user_states[chat_id]['attribute'] = attribute_ru
+                product_name = self.products[product_index].get('name')
+                self.bot.send_message(chat_id, f"Введите новое значение {attribute_ru} для товара {product_name}:")
                 self.bot.register_next_step_handler(message, self.handle_attribute_value)
             else:
-                self.bot.send_message(chat_id, "Некорректный атрибут.")
-        elif state == 2: #Добавление товара
-            if 'name' not in self.user_states[chat_id]:
-                self.user_states[chat_id]['name'] = message.text
-                self.bot.send_message(chat_id, "Введите цену:")
-                self.bot.register_next_step_handler(message, self.handle_add_product)
-            elif 'price' not in self.user_states[chat_id]:
-                self.user_states[chat_id]['price'] = message.text
-                self.bot.send_message(chat_id, "Введите описание:")
-                self.bot.register_next_step_handler(message, self.handle_add_product)
-            else:
-                new_product = {
-                    'name': self.user_states[chat_id]['name'],
-                    'price': self.user_states[chat_id]['price'],
-                    'description': message.text,
-                }
-                self.products.append(new_product)
-                self.user_states[chat_id] = {}
+                self.bot.send_message(chat_id, "Некорректный атрибут")
+    
+    def handle_next_edit(self, message):
+        chat_id = message.chat.id
+        state_data = self.user_states.get(chat_id)
+        if state_data and state_data.get('state') == 1:
+            if message.text == "Выход":
+                if 'product_index' in state_data:
+                    product_name = self.products[state_data.get('product_index')].get('name')
+                    del state_data['product_index']
+                if 'attribute' in state_data:
+                    del state_data['attribute']
+                self.bot.send_message(chat_id, f"Редактирование товара {product_name} завершено", reply_markup=self.generate_main_keyboard())
                 self.show_catalog(message)
+            else:
+                self.handle_edit_attribute(message)
+        else:
+            self.bot.send_message(chat_id, "Ошибка: Нет текущего состояния редактирования.")
 
     def handle_add_product(self, message):
         chat_id = message.chat.id
@@ -311,7 +332,9 @@ class AdminInterface:
     def handle_callback(self, call):
         chat_id = call.message.chat.id
         callback_data = call.data
+        state_data = self.user_states.get(chat_id)
         print(f"Callback query received: Chat ID: {chat_id} Callback Data: {callback_data}")
+        print(f"handle_callback called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
 
         # if chat_id in self.user_states:
         #     self.user_states[chat_id] = {}  # Сбрасываем состояние
@@ -324,6 +347,7 @@ class AdminInterface:
         if data[0] == "edit":
             product_index = int(data[1])
             self.user_states[chat_id] = {"state": 1, "product_index": product_index}
+            print(f"handle_callback (edit) called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
             msg = self.bot.send_message(chat_id, "Что изменить?", reply_markup=self.generate_edit_keyboard())
             self.bot.register_next_step_handler(msg, self.handle_edit_attribute)
         elif data[0] == "delete":
@@ -334,6 +358,7 @@ class AdminInterface:
             self.user_states[chat_id] = {"state": 2}  # Состояние добавления
             self.bot.send_message(chat_id, "Введите название товара:")
             self.bot.register_next_step_handler(call.message, self.handle_add_product)
+    
         
     # Понадобится позже
 
