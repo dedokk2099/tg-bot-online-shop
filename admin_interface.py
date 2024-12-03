@@ -231,12 +231,17 @@ class AdminInterface:
                         # self.user_states.pop(chat_id, None)
                         return
                     attribute_en = self.translate_attribute(attribute_ru)
+                    if attribute_en in ['price', 'quantity']:
+                        float(message.text)
                     new_value = message.text
                     product[attribute_en] = new_value
                     self.bot.send_message(chat_id, f"Атрибут '{attribute_ru}' изменён. Что ещё изменить?", reply_markup=self.generate_edit_keyboard())
                     self.bot.register_next_step_handler(message, self.handle_next_edit)
                     if 'attribute' in state_data:
                         del state_data['attribute']
+                except ValueError:
+                            self.bot.send_message(chat_id, "Некорректный формат. Пожалуйста, введите число")
+                            self.bot.register_next_step_handler(message, self.handle_attribute_value) # Рекурсивный вызов
                 except (KeyError, IndexError, AttributeError) as e:
                     self.bot.send_message(chat_id, f"Ошибка при обновлении товара: {e}")
                     # self.user_states.pop(chat_id, None)  # Очищаем состояние при ошибке
@@ -273,7 +278,7 @@ class AdminInterface:
                     attribute_ru = message.text
                     if attribute_ru in ['Название', 'Цена', 'Описание', 'Количество']:
                         self.user_states[chat_id]['attribute'] = attribute_ru
-                        self.bot.send_message(chat_id, f"Введите новое значение для {attribute_ru} товара '{product['name']}':")
+                        self.bot.send_message(chat_id, f"Введите новое значение '{attribute_ru}' для товара '{product['name']}':")
                         self.bot.register_next_step_handler(message, self.handle_attribute_value)
                     elif attribute_ru == "Изображение":
                         self.user_states[chat_id]['attribute'] = attribute_ru
