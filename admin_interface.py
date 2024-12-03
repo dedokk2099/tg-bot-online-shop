@@ -175,9 +175,47 @@ class AdminInterface:
             'Название': 'name',
             'Цена': 'price',
             'Описание': 'description',
-            'Количество': 'quantity'
+            'Количество': 'quantity',
+            'Изображение': 'image'
         }
         return translation.get(attribute_ru)
+
+    def handle_new_image(self, message):
+        chat_id = message.chat.id
+        state_data = self.user_states.get(chat_id)
+        if state_data and state_data.get('state') == 1:
+            product_id = state_data.get('product_id')
+            attribute_ru = state_data.get('attribute')
+            if product_id is not None and attribute_ru is not None:
+                try:
+                    if message.photo:
+                        # Обновляем информацию о товаре
+                        product = next((p for p in self.products if p['id'] == product_id), None)
+                        if product is None:
+                            self.bot.send_message(chat_id, "Ошибка: Товар не найден.")
+                            # self.user_states.pop(chat_id, None)
+                            return
+                        attribute_en = self.translate_attribute(attribute_ru)
+                        file_id = message.photo[-1].file_id # получаем ID последней фотографии
+                        file_info = self.bot.get_file(file_id)  # Получаем информацию о файле
+                        file_path = file_info.file_path
+                        image_bytes = self.bot.download_file(file_path)
+                        filename = os.path.join(PHOTO_FOLDER, f"{uuid.uuid4().hex}.jpg")
+                        with open(filename, 'wb') as new_image:
+                            new_image.write(image_bytes)
+                        product[attribute_en] = filename
+                        self.bot.send_message(chat_id, "Изображение изменено! Что ещё изменить?", reply_markup=self.generate_edit_keyboard())
+                        self.bot.register_next_step_handler(message, self.handle_next_edit)
+                        if 'attribute' in state_data:
+                            del state_data['attribute']
+                    else:
+                        self.bot.send_message(chat_id, "Пожалуйста, отправьте изображение")
+                        self.bot.register_next_step_handler(message, self.handle_new_image)  # Рекурсивный вызов
+                except (KeyError, IndexError, AttributeError) as e:
+                    self.bot.send_message(chat_id, f"Ошибка при обновлении товара: {e}")
+                    # self.user_states.pop(chat_id, None) # Очищаем state
+            else:
+                self.bot.send_message(chat_id, "Ошибка: Товар не выбран")
 
     def handle_attribute_value(self, message):
         chat_id = message.chat.id
@@ -194,9 +232,8 @@ class AdminInterface:
                         return
                     attribute_en = self.translate_attribute(attribute_ru)
                     new_value = message.text
-                    product[attribute_en] = new_value  # Изменяем значение напрямую в словаре
-                    # self.products[product_index][attribute_en] = new_value
-                    self.bot.send_message(chat_id, "Атрибут изменён. Что ещё изменить?", reply_markup=self.generate_edit_keyboard())
+                    product[attribute_en] = new_value
+                    self.bot.send_message(chat_id, f"Атрибут '{attribute_ru}' изменён. Что ещё изменить?", reply_markup=self.generate_edit_keyboard())
                     self.bot.register_next_step_handler(message, self.handle_next_edit)
                     if 'attribute' in state_data:
                         del state_data['attribute']
@@ -238,6 +275,10 @@ class AdminInterface:
                         self.user_states[chat_id]['attribute'] = attribute_ru
                         self.bot.send_message(chat_id, f"Введите новое значение для {attribute_ru} товара '{product['name']}':")
                         self.bot.register_next_step_handler(message, self.handle_attribute_value)
+                    elif attribute_ru == "Изображение":
+                        self.user_states[chat_id]['attribute'] = attribute_ru
+                        self.bot.send_message(message.chat.id, f"Отправьте новое изображение для товара '{product['name']}':")
+                        self.bot.register_next_step_handler(message, self.handle_new_image) # вызов функции обработки изображения
                     else:
                         self.bot.send_message(chat_id, "Некорректный атрибут.")
                         self.bot.register_next_step_handler(message, self.handle_edit_attribute)
@@ -246,19 +287,6 @@ class AdminInterface:
                     self.bot.send_message(chat_id, f"Ошибка: {e}")
                     # self.user_states.pop(chat_id, None) #Очищаем состояние при ошибке
 
-                # product_index = state_data.get('product_index')
-                # if product_index is None:
-                #     self.bot.send_message(chat_id, "Ошибка: Товар не выбран")
-                #     return
-
-                # attribute_ru = message.text
-                # if attribute_ru in ['Название', 'Цена', 'Описание','Количество']:
-                #     self.user_states[chat_id]['attribute'] = attribute_ru
-                #     product_name = self.products[product_index].get('name')
-                #     self.bot.send_message(chat_id, f"Введите новое значение {attribute_ru} для товара {product_name}:")
-                #     self.bot.register_next_step_handler(message, self.handle_attribute_value)
-                # else:
-                #     self.bot.send_message(chat_id, "Некорректный атрибут")
     
     def handle_next_edit(self, message):
         chat_id = message.chat.id
@@ -354,9 +382,6 @@ class AdminInterface:
             markup.add(types.InlineKeyboardButton("Обновить каталог", callback_data="catalog"))
             self.bot.send_message(message.chat.id, "Добавить новый товар или обновить каталог?", reply_markup=markup)
             self.user_states[chat_id] = {'state': 0}
-            # self.bot.send_message(chat_id, "Обновляю каталог...")
-            # self.bot.send_message(chat_id, "Обновляю каталог...", reply_markup=types.ReplyKeyboardRemove())
-            # self.show_catalog(message)
         except Exception as e:
             self.bot.send_message(chat_id, f"Ошибка при добавлении товара: {e}")
             
@@ -398,21 +423,6 @@ class AdminInterface:
 
                 product_name = product_to_delete.get('name')
                 self.products.remove(product_to_delete)  # Удаляем по значению
-
-                # if not self.products:
-                #     self.bot.answer_callback_query(call.id, text="Каталог пуст")
-                #     return
-
-                # # Получаем товар по индексу БЕЗ изменения индексов
-                # try:
-                #     product_to_delete = self.products[product_index]
-                #     product_name = product_to_delete.get('name')
-                # except IndexError:
-                #     self.bot.answer_callback_query(call.id, text="Товар не найден!")
-                #     return
-
-                # # Удаляем товар, используя метод remove, который не влияет на индексы других элементов
-                # self.products.pop(product_index)
                 print(f"Товар {product_name} удален!")
 
                 try:
@@ -429,16 +439,6 @@ class AdminInterface:
                 print(f"Ошибка при удалении товара: {e}")
                 self.bot.answer_callback_query(call.id, text="Ошибка при удалении товара.")
 
-
-            # try:
-            #     product_name = self.products[product_index].get('name')
-            #     del self.products[product_index]
-            #     print(f"Товар {product_name} удален!")
-            #     self.bot.delete_message(chat_id, call.message.message_id) # Удаляем старое сообщение
-            #     self.bot.send_message(chat_id, f"Товар {product_name} удален!") #Отправляем новое сообщение
-            # except (IndexError, telebot.apihelper.ApiTelegramException) as e:
-            #     print(f"Ошибка при удалении товара: {e}")
-            #     self.bot.answer_callback_query(call.id, text="Ошибка при удалении товара.")   
         elif data[0] == "add":
             self.user_states[chat_id] = {"state": 2}  # Состояние добавления
             self.bot.send_message(chat_id, "Введите название товара:")
