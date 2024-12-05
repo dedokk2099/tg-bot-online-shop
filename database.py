@@ -79,20 +79,20 @@ def deleteItem(item_id):
 association_table = Table('order_user_association', Base.metadata, 
     Column('user_id', Integer, ForeignKey('users.id')),
     Column('shop_id', Integer, ForeignKey('shop.id')),
-    Column('order_id', Integer, ForeignKey('orders.id')),
+    Column('order_id', Integer, ForeignKey('order.id')),
 )
 
-
+'''
 # база данных заказов
-class Orders(Base):
-    __tablename__ = 'orders'
+class Order(Base):
+    __tablename__ = 'order'
     id = Column(Integer, primary_key=True)
     number_order = Column(Integer, nullable=False) # может и не понадобится
     status = Column(String, nullable=False) # new, in work, done    
 
     # ассоциации
-    users = relationship('Users', secondary=association_table, back_populates='orders')
-    shops = relationship('Shop', secondary=association_table, back_populates='orders')
+    order_user = relationship('Users', secondary=association_table, back_populates='order')
+    order_shops = relationship('Shop', secondary=association_table, back_populates='order')
 
 
 # база данных истории заказов
@@ -101,11 +101,11 @@ class OrderHistory(Base):
     id = Column(Integer, primary_key=True)
 
     # ассоциации
-    users = relationship('Users', secondary=association_table, back_populates='order_history')
-    orders = relationship('Orders', secondary=association_table, back_populates='order_history')
-    shops = relationship('Shop', secondary=association_table, back_populates='order_history')
+    history_users = relationship('Users', secondary=association_table, back_populates='order_history')
+    history_orders = relationship('Orders', secondary=association_table, back_populates='order_history')
+    history_shops = relationship('Shop', secondary=association_table, back_populates='order_history')
 
-
+'''
 Base.metadata.create_all(engine)
 
 
