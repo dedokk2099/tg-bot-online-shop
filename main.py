@@ -22,7 +22,7 @@ def handle_start(message):
     bot.send_message(message.chat.id, 'Получена команда /start')
     print(message.chat.id)
 
-@bot.message_handler(commands=['admin'])
+#@bot.message_handler(commands=['admin'])
 # def handle_admin(message):
 #     # Сбрасываем состояние пользователя
 #     chat_id = message.chat.id
