@@ -6,7 +6,7 @@ import requests
 import os
 import uuid
 
-import products
+import model.products as products
 
 PHOTO_FOLDER = 'product_photos'
 

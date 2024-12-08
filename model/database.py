@@ -4,8 +4,10 @@ from sqlalchemy.orm import sessionmaker, relationship
 import os
 import sqlite3
 
+import model.products as products
+
 Base = declarative_base()
-engine = create_engine('sqlite:///shop.db')
+engine = create_engine('sqlite:///model/shop.db')
 Session = sessionmaker(bind=engine)
 session = Session()
 
@@ -24,6 +26,7 @@ class User:
     def _add_admin(self, chat_id):
         user = session.query(Users).filter_by(chat_id=chat_id).first()
         session.delete(user)
+        session.commit()
         user = Users(chat_id=chat_id, role = 'Admin')
         session.add(user)
         session.commit()
@@ -47,12 +50,19 @@ class User:
         else:
             return False
 
+def get_products():
+    return products.products
 
 # Пример добавления
-#number = session.query(Users).filter_by(chat_id="2023435947").first()
-# session.delete(number)
+
+# user = session.query(Users).filter_by(role='Admin').first()
+# session.delete(user)
 # session.commit()
 
-# item = session.query(Users).filter_by(chat_id="2023435947").first()
-# print(item.chat_id, item.role)
-# print(item)
+number = Users(chat_id="2023435947", role = 'Admin')
+session.add(number)
+session.commit()
+
+item = session.query(Users).filter_by(chat_id="2023435947").first()
+print(item.chat_id, item.role)
+print(item)
