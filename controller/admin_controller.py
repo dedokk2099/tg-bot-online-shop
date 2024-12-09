@@ -8,7 +8,11 @@ import requests
 import os
 import uuid
 
-PHOTO_FOLDER = 'product_photos'
+PHOTO_FOLDER = 'model/product_photos'
+# Создаем папку для хранения фото, если ее нет
+if not os.path.exists(PHOTO_FOLDER):
+    os.makedirs(PHOTO_FOLDER)
+
 
 class AdminController:
     def __init__(self, bot):
@@ -28,9 +32,7 @@ class AdminController:
 
         if not self.products:
             self.bot.send_message(chat_id, "Каталог пуст")
-            markup = types.InlineKeyboardMarkup()
-            markup.add(types.InlineKeyboardButton("Добавить товар", callback_data="add"))
-            self.bot.send_message(message.chat.id, "Добавить новый товар?", reply_markup=markup)
+            self.bot.send_message(message.chat.id, "Добавить новый товар?", reply_markup=keyboards.generate_add_keyboard())
             return
 
         # if message.chat.id not in self.user_states:
@@ -38,20 +40,11 @@ class AdminController:
         if self.user_states[message.chat.id].get('state') == 0:
             for product in self.products:
                 self.send_product_info(chat_id, product)
-            # Кнопка "Добавить товар" после всех товаров
-            markup = types.InlineKeyboardMarkup()
-            markup.add(types.InlineKeyboardButton("Добавить товар", callback_data="add"))
-            self.bot.send_message(message.chat.id, "Добавить новый товар?", reply_markup=markup)
+            self.bot.send_message(message.chat.id, "Добавить новый товар?", reply_markup=keyboards.generate_add_keyboard())
             return
         
     def send_product_info(self, chat_id, product):
-        markup = telebot.types.InlineKeyboardMarkup()
-        markup.add(
-            telebot.types.InlineKeyboardButton(text="Редактировать", callback_data=f"edit:{product['id']}"),
-            telebot.types.InlineKeyboardButton(text="Удалить", callback_data=f"delete:{product['id']}"),
-        )
         text = f"<b>{product['name']}</b>\nСтоимость: {product['price']} ₽\nОписание: {product['description']}\nКоличество на складе: {product['quantity']}"
-
         try:
             if product.get('image'):
                 image_url_or_path = product['image']
@@ -73,15 +66,15 @@ class AdminController:
                 image_io = io.BytesIO()
                 image.save(image_io, format='JPEG')
                 image_io.seek(0)
-                self.bot.send_photo(chat_id, image_io, caption=text, parse_mode="HTML", reply_markup=markup)
+                self.bot.send_photo(chat_id, image_io, caption=text, parse_mode="HTML", reply_markup=keyboards.generate_product_keyboard(product))
             else:
-                self.bot.send_message(chat_id, text, parse_mode="HTML", reply_markup=markup)
+                self.bot.send_message(chat_id, text, parse_mode="HTML", reply_markup=keyboards.generate_product_keyboard(product))
         except requests.exceptions.RequestException as e:
             self.bot.send_message(chat_id, f"Ошибка загрузки изображения для товара {product['name']}: {e}")
-            self.bot.send_message(chat_id, text, parse_mode="HTML", reply_markup=markup)
+            self.bot.send_message(chat_id, text, parse_mode="HTML", reply_markup=keyboards.generate_product_keyboard(product))
         except Exception as e:
             self.bot.send_message(chat_id, f"Ошибка при обработке изображения для товара {product['name']}: {e}")
-            self.bot.send_message(chat_id, text, parse_mode="HTML", reply_markup=markup)
+            self.bot.send_message(chat_id, text, parse_mode="HTML", reply_markup=keyboards.generate_product_keyboard(product))
     
     def translate_attribute(self, attribute_ru):
         translation = {
@@ -294,10 +287,7 @@ class AdminController:
             self.products.append(new_product)
             self.bot.send_message(chat_id, "Товар успешно добавлен:")
             self.send_product_info(chat_id, next((p for p in self.products if p['id'] == new_product_id), None))
-            markup = types.InlineKeyboardMarkup()
-            markup.add(types.InlineKeyboardButton("Добавить товар", callback_data="add"))
-            markup.add(types.InlineKeyboardButton("Обновить каталог", callback_data="catalog"))
-            self.bot.send_message(message.chat.id, "Добавить новый товар или обновить каталог?", reply_markup=markup)
+            self.bot.send_message(message.chat.id, "Добавить новый товар или обновить каталог?", reply_markup=keyboards.generate_add_or_update_keyboard())
             self.user_states[chat_id] = {'state': 0}
         except Exception as e:
             self.bot.send_message(chat_id, f"Ошибка при добавлении товара: {e}")

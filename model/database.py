@@ -53,19 +53,13 @@ class User:
 def get_products():
     return products.products
 
-# Пример добавления
+# Пример добавления (с удалением по id, если пользователь уже в базе)
 
-# user = session.query(Users).filter_by(role='Admin').first()
+#id = 'xxx' #вставьте необходимый
+# user = session.query(Users).filter_by(chat_id=id).first()
 # session.delete(user)
 # session.commit()
 
-user = session.query(Users).filter_by(chat_id="884454010").first()
-session.delete(user)
-session.commit()
-number = Users(chat_id="884454010", role = 'Admin')
-session.add(number)
-session.commit()
-
-# item = session.query(Users).filter_by(chat_id="2023435947").first()
-# print(item.chat_id, item.role)
-# print(item)
+# new_admin = Users(chat_id=id, role = 'Admin')
+# session.add(number)
+# session.commit()
