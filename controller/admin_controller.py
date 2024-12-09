@@ -168,7 +168,7 @@ class AdminController:
                     del state_data['product_id']
                 if 'attribute' in state_data:
                     del state_data['attribute']
-                self.bot.send_message(chat_id, f"Редактирование товара {product['name']} отменено", reply_markup=keyboards.generate_main_keyboard())
+                self.bot.send_message(chat_id, f"Редактирование товара {product['name']} отменено", reply_markup=keyboards.generate_admin_keyboard())
             else:
                 product_id = state_data.get('product_id')
                 if product_id is None:
@@ -202,19 +202,22 @@ class AdminController:
         chat_id = message.chat.id
         state_data = self.user_states.get(chat_id)
         if state_data and state_data.get('state') == 1:
-            if message.text == "Выход":
-                if 'product_id' in state_data:
-                    product_id = state_data.get('product_id')
-                    product = next((p for p in self.products if p['id'] == product_id), None)
-                    # product_name = self.products[state_data.get('product_id)].get('name')
-                    del state_data['product_id']
-                if 'attribute' in state_data:
-                    del state_data['attribute']
-                self.bot.send_message(chat_id, f"Редактирование товара {product['name']} завершено")
-                self.bot.send_message(chat_id, "Обновляю каталог...", reply_markup=keyboards.generate_main_keyboard())
-                self.show_catalog(message)
-            else:
-                self.handle_edit_attribute(message)
+            try:
+                if message.text == "Выход":
+                    if 'product_id' in state_data:
+                        product_id = state_data.get('product_id')
+                        product = next((p for p in self.products if p['id'] == product_id), None)
+                        # product_name = self.products[state_data.get('product_id)].get('name')
+                        del state_data['product_id']
+                    if 'attribute' in state_data:
+                        del state_data['attribute']
+                    self.bot.send_message(chat_id, f"Редактирование товара {product['name']} завершено")
+                    self.bot.send_message(chat_id, "Обновляю каталог...", reply_markup=keyboards.generate_admin_keyboard())
+                    self.show_catalog(message)
+                else:
+                    self.handle_edit_attribute(message)
+            except Exception as e:
+                    self.bot.send_message(chat_id, f"Ошибка: {e}")
         else:
             self.bot.send_message(chat_id, "Ошибка: Нет текущего состояния редактирования.")
 
