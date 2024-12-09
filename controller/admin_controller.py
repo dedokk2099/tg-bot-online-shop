@@ -1,11 +1,11 @@
-from view.keyboards import *
-from model.database import *
+import view.keyboards as keyboards
+import model.database as database
 import telebot
+from telebot import types
 from PIL import Image
 import io
 import requests
 import os
-import uuid
 import uuid
 
 PHOTO_FOLDER = 'product_photos'
@@ -13,7 +13,7 @@ PHOTO_FOLDER = 'product_photos'
 class AdminController:
     def __init__(self, bot):
         self.bot = bot
-        self.products = get_products()
+        self.products = database.get_products()
         self.user_states = {}
 
     def generate_unique_id(self):
@@ -117,7 +117,7 @@ class AdminController:
                         with open(filename, 'wb') as new_image:
                             new_image.write(image_bytes)
                         product[attribute_en] = filename
-                        self.bot.send_message(chat_id, "Изображение изменено! Что ещё изменить?", reply_markup=generate_edit_keyboard())
+                        self.bot.send_message(chat_id, "Изображение изменено! Что ещё изменить?", reply_markup=keyboards.generate_edit_keyboard())
                         self.bot.register_next_step_handler(message, self.handle_next_edit)
                         if 'attribute' in state_data:
                             del state_data['attribute']
@@ -148,7 +148,7 @@ class AdminController:
                         float(message.text)
                     new_value = message.text
                     product[attribute_en] = new_value
-                    self.bot.send_message(chat_id, f"Атрибут '{attribute_ru}' изменён. Что ещё изменить?", reply_markup=generate_edit_keyboard())
+                    self.bot.send_message(chat_id, f"Атрибут '{attribute_ru}' изменён. Что ещё изменить?", reply_markup=keyboards.generate_edit_keyboard())
                     self.bot.register_next_step_handler(message, self.handle_next_edit)
                     if 'attribute' in state_data:
                         del state_data['attribute']
@@ -175,7 +175,7 @@ class AdminController:
                     del state_data['product_id']
                 if 'attribute' in state_data:
                     del state_data['attribute']
-                self.bot.send_message(chat_id, f"Редактирование товара {product['name']} отменено", reply_markup=generate_main_keyboard())
+                self.bot.send_message(chat_id, f"Редактирование товара {product['name']} отменено", reply_markup=keyboards.generate_main_keyboard())
             else:
                 product_id = state_data.get('product_id')
                 if product_id is None:
@@ -218,7 +218,7 @@ class AdminController:
                 if 'attribute' in state_data:
                     del state_data['attribute']
                 self.bot.send_message(chat_id, f"Редактирование товара {product['name']} завершено")
-                self.bot.send_message(chat_id, "Обновляю каталог...", reply_markup=generate_main_keyboard())
+                self.bot.send_message(chat_id, "Обновляю каталог...", reply_markup=keyboards.generate_main_keyboard())
                 self.show_catalog(message)
             else:
                 self.handle_edit_attribute(message)
@@ -327,7 +327,7 @@ class AdminController:
             product_to_edit = next((p for p in self.products if p['id'] == product_id), None)
             self.user_states[chat_id] = {"state": 1, "product_id": product_id}
             print(f"изменили состояние chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
-            msg = self.bot.send_message(chat_id, f"Редактируем товар {product_to_edit['name']}\nСтоимость: {product_to_edit['price']} ₽\nОписание: {product_to_edit['description']}\nКоличество на складе: {product_to_edit['quantity']}\n\nЧто изменить?", reply_markup=generate_edit_keyboard())
+            msg = self.bot.send_message(chat_id, f"Редактируем товар {product_to_edit['name']}\nСтоимость: {product_to_edit['price']} ₽\nОписание: {product_to_edit['description']}\nКоличество на складе: {product_to_edit['quantity']}\n\nЧто изменить?", reply_markup=keyboards.generate_edit_keyboard())
             self.bot.register_next_step_handler(msg, self.handle_edit_attribute)
         elif data[0] == "delete":
             print(f"handle_callback (delete) called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")

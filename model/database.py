@@ -59,10 +59,13 @@ def get_products():
 # session.delete(user)
 # session.commit()
 
-number = Users(chat_id="2023435947", role = 'Admin')
+user = session.query(Users).filter_by(chat_id="884454010").first()
+session.delete(user)
+session.commit()
+number = Users(chat_id="884454010", role = 'Admin')
 session.add(number)
 session.commit()
 
-item = session.query(Users).filter_by(chat_id="2023435947").first()
-print(item.chat_id, item.role)
-print(item)
+# item = session.query(Users).filter_by(chat_id="2023435947").first()
+# print(item.chat_id, item.role)
+# print(item)

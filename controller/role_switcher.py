@@ -1,8 +1,6 @@
 from model.database import User
 from view.keyboards import generate_main_keyboard
-#from cryptography.fernet import Fernet
-#import keyring
-import controller.admin_controllrer as admin_controller
+import controller.admin_controller as admin_controller
 import view.user_interface as user_interface
 
 class RoleSwitcher:
