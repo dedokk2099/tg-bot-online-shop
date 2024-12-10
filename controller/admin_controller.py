@@ -7,6 +7,7 @@ import io
 import requests
 import os
 import uuid
+from html import escape #для экранирования html символов
 
 from model.orders import get_orders, OrderStatus
 
@@ -21,13 +22,8 @@ class AdminController:
         self.bot = bot
         self.products = database.get_products()
         self.user_states = {}
-        self.all_orders = get_orders() #все заказы
-        self.new_orders = get_orders(status=OrderStatus.PROCESSING)
-        self.completed_orders = get_orders(status=OrderStatus.RECEIVED)
-        # Заказы в работе - все кроме новых и полученных
-        self.in_progress_orders = [order for order in self.all_orders
-                                    if order.status not in (OrderStatus.PROCESSING, OrderStatus.RECEIVED)]
-        
+        self.order_message_map = {}
+        self.all_orders = get_orders()
 
 # Функции для работы с каталогом
 
@@ -369,20 +365,29 @@ class AdminController:
             print(f"handle_callback (change_status) called for chat_id: {chat_id}")
             order_id = data[1]
             order = self.find_order_by_id(order_id)
-            text = f"Вы хотите изменить статус заказа {order_id}\nТекущий статус: {order.status.value}\nВыберите новый статус:"
-            self.bot.send_message(chat_id, text, reply_markup=keyboards.generate_status_keyboard(order_id, order.status))
+            text = f"Вы хотите изменить статус заказа <b>{order_id}</b>\nТекущий статус: <b>{order.status.value}</b>\nВыберите новый статус:"
+            self.bot.send_message(chat_id, text, parse_mode='html', reply_markup=keyboards.generate_status_keyboard(order_id, order.status))
 
     # Функции для работы с заказами
     def send_order_info(self, order, chat_id):
-        items_str = "\n    ".join([f"- {item['product'].name} x {item['quantity']}" for item in order.items])
-        text = f"""Номер заказа: {order.id}
-    Статус: {order.status.value}
-    Дата и время: {order.order_datetime.strftime('%d.%m.%y %H:%M')}
-    Способ получения: {order.delivery_type.value}
-    Товары:
-    {items_str}
-    Итого: {order.total_sum}  ₽"""
-        self.bot.send_message(chat_id, text, reply_markup=keyboards.generate_change_status_keyboard(order))
+        items_str = ""
+        for i, item in enumerate(order.items):
+            product_name = escape(item['product'].name) # экранируем от html атак
+            product_price = item['product'].price
+            quantity = item['quantity']
+            total_item_price = product_price * quantity
+            items_str += f"{i+1}. <b>{product_name}</b>\n{product_price} ₽ x {quantity} = {total_item_price} ₽\n"
+
+        text = f"""Номер заказа: <b>{order.id}</b>
+Статус: <b>{order.status.value}</b>
+Дата и время: {order.order_datetime.strftime('%d.%m.%y %H:%M')}
+Способ получения: <b>{order.delivery_type.value}</b>\n
+Состав заказа:
+{items_str}
+Итого: {order.total_sum} ₽"""
+
+        message = self.bot.send_message(chat_id, text, parse_mode='html', reply_markup=keyboards.generate_change_status_keyboard(order))
+        self.order_message_map[order.id] = message.message_id
 
 
     def show_new_orders(self, message):
@@ -394,7 +399,6 @@ class AdminController:
         else:
             self.bot.send_message(chat_id, "Нет новых заказов")
 
-
     def show_in_progress_orders(self, message):
         chat_id = message.chat.id
         in_progress_orders = [order for order in self.all_orders
@@ -405,7 +409,6 @@ class AdminController:
         else:
             self.bot.send_message(chat_id, "Нет заказов в работе")
 
-
     def show_completed_orders(self, message):
         chat_id = message.chat.id
         completed_orders = get_orders(status=OrderStatus.RECEIVED)
@@ -413,23 +416,13 @@ class AdminController:
             for order in completed_orders:
                 self.send_order_info(order, chat_id)
         else:
-            self.bot.send_message(chat_id, "Нет полученных заказов")
+            self.bot.send_message(chat_id, "Нет выполненных заказов")
 
     def find_order_by_id(self, order_id):
         for order in self.all_orders:
             if order.id == order_id:
                 return order
         return None
-
-    # def change_status(self, message, order_id):
-    #     new_status = message.text
-    #     order = self.find_order_by_id(order_id)
-    #     if order:
-    #         order.status = new_status  # Обновление статуса заказа
-    #         self.bot.answer_callback_query(call.id, f"Статус заказа {order_id} изменён на {new_status.value}")
-            
-    #     else:
-    #         self.bot.answer_callback_query(call.id, f"Заказ с ID {order_id} не найден", show_alert=True)
 
     def handle_change_status(self, call):
         chat_id = call.message.chat.id
@@ -442,7 +435,11 @@ class AdminController:
             order = self.find_order_by_id(order_id)
             if order:
                 order.status = new_status  # Обновление статуса заказа
-                self.bot.answer_callback_query(call.id, f"Статус заказа {order_id} изменён на {new_status.value}")
+                self.bot.send_message(chat_id, f"Статус заказа {order_id} изменён на '{new_status.value}'")
+                message_id_to_delete = self.order_message_map.get(order_id)  # Извлекаем message_id из словаря по order_id
+                if message_id_to_delete:
+                    self.bot.delete_message(chat_id, message_id_to_delete)
+                    self.bot.delete_message(chat_id, call.message.message_id)
             else:
                 self.bot.answer_callback_query(call.id, f"Заказ с ID {order_id} не найден", show_alert=True)
         except (IndexError, KeyError, ValueError) as e:

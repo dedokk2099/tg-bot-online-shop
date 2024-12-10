@@ -28,7 +28,6 @@ class Order:
     def generate_order_id(customer_id, orders_by_customer):
         return len(orders_by_customer.get(customer_id, [])) + 1
 
-
     def calculate_total(self):
         total = 0
         for item in self.items:
@@ -53,9 +52,9 @@ def get_orders(customer_id=None, status=None):
     orders = []
     for customer_orders in orders_by_customer.values():
       for order in customer_orders:
-        if customer_id and order.customer_id != customer_id:
+        if customer_id is not None and order.customer_id != customer_id:
             continue
-        if status and order.status != status:
+        if status is not None and order.status != status:
             continue
         orders.append(order)
     return orders
@@ -77,11 +76,9 @@ add_new_order('user123', order_items2, DeliveryType.DELIVERY)
 add_new_order('user456', order_items3, DeliveryType.PICKUP)
 add_new_order('user456', order_items4, DeliveryType.DELIVERY)
 
-import pprint
-
-for customer_id, orders in orders_by_customer.items():
-    print(f"Заказы клиента {customer_id}:")
-    for order in orders:
-        print(f"  - ID: {order.id}, Статус: {order.status.value}, Сумма: {order.total_sum}")
-    print()
+# for customer_id, orders in orders_by_customer.items():
+#     print(f"Заказы клиента {customer_id}:")
+#     for order in orders:
+#         print(f"  - ID: {order.id}, Статус: {order.status.value}, Сумма: {order.total_sum}")
+#     print()
 
