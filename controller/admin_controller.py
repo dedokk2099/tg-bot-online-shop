@@ -123,6 +123,10 @@ class AdminController:
                         product[attribute_en] = filename
                         self.bot.send_message(chat_id, "Изображение изменено! Что ещё изменить?", reply_markup=keyboards.generate_edit_keyboard())
                         self.bot.register_next_step_handler(message, self.handle_next_edit)
+
+                        # изменение изображения товара в базе данных его названию и id
+                        database.updateItemAttribute(product_id, attribute_en, filename)
+
                         if 'attribute' in state_data:
                             del state_data['attribute']
                     else:
@@ -154,6 +158,10 @@ class AdminController:
                     product[attribute_en] = new_value
                     self.bot.send_message(chat_id, f"Атрибут '{attribute_ru}' изменён. Что ещё изменить?", reply_markup=keyboards.generate_edit_keyboard())
                     self.bot.register_next_step_handler(message, self.handle_next_edit)
+
+                    # изменение атрибута товара в базе данных его названию и id
+                    database.updateItemAttribute(product_id, attribute_en, new_value)
+
                     if 'attribute' in state_data:
                         del state_data['attribute']
                 except ValueError:
@@ -298,6 +306,9 @@ class AdminController:
                 'image': photo_path,  # Добавляем фото
             }
 
+            # добавление в базу данных товаров
+            database.addItem(new_product_id, user_state['name'], user_state['price'], user_state['description'], user_state['stock_quantity'], photo_path)
+
             self.products.append(new_product)
             self.bot.send_message(chat_id, "Товар успешно добавлен:")
             self.send_product_info(chat_id, next((p for p in self.products if p['id'] == new_product_id), None))
@@ -343,6 +354,9 @@ class AdminController:
                 product_name = product_to_delete.get('name')
                 self.products.remove(product_to_delete)  # Удаляем по значению
                 print(f"Товар {product_name} удален!")
+
+                # удаление товара из базы данных по id товара
+                database.deleteItem(product_id)
 
                 try:
                     self.bot.delete_message(chat_id, call.message.message_id)
