@@ -387,8 +387,9 @@ class AdminController:
 
     def show_new_orders(self, message):
         chat_id = message.chat.id
-        if self.new_orders:
-            for order in self.new_orders:
+        new_orders = get_orders(status=OrderStatus.PROCESSING)
+        if new_orders:
+            for order in new_orders:
                 self.send_order_info(order, chat_id)
         else:
             self.bot.send_message(chat_id, "Нет новых заказов")
@@ -396,8 +397,10 @@ class AdminController:
 
     def show_in_progress_orders(self, message):
         chat_id = message.chat.id
-        if self.in_progress_orders:
-            for order in self.in_progress_orders:
+        in_progress_orders = [order for order in self.all_orders
+                                    if order.status not in (OrderStatus.PROCESSING, OrderStatus.RECEIVED)]
+        if in_progress_orders:
+            for order in in_progress_orders:
                 self.send_order_info(order, chat_id)
         else:
             self.bot.send_message(chat_id, "Нет заказов в работе")
@@ -405,8 +408,9 @@ class AdminController:
 
     def show_completed_orders(self, message):
         chat_id = message.chat.id
-        if self.completed_orders:
-            for order in self.completed_orders:
+        completed_orders = get_orders(status=OrderStatus.RECEIVED)
+        if completed_orders:
+            for order in completed_orders:
                 self.send_order_info(order, chat_id)
         else:
             self.bot.send_message(chat_id, "Нет полученных заказов")
@@ -417,14 +421,15 @@ class AdminController:
                 return order
         return None
 
-    def change_status(self, message, order_id):
-        new_status = message.text
-        order = self.find_order_by_id(order_id)
-        if order:
-            order.status = new_status  # Обновление статуса заказа
-            self.bot.answer_callback_query(call.id, f"Статус заказа {order_id} изменён на {new_status.value}")
-        else:
-            self.bot.answer_callback_query(call.id, f"Заказ с ID {order_id} не найден", show_alert=True)
+    # def change_status(self, message, order_id):
+    #     new_status = message.text
+    #     order = self.find_order_by_id(order_id)
+    #     if order:
+    #         order.status = new_status  # Обновление статуса заказа
+    #         self.bot.answer_callback_query(call.id, f"Статус заказа {order_id} изменён на {new_status.value}")
+            
+    #     else:
+    #         self.bot.answer_callback_query(call.id, f"Заказ с ID {order_id} не найден", show_alert=True)
 
     def handle_change_status(self, call):
         chat_id = call.message.chat.id
