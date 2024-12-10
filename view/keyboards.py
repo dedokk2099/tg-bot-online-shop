@@ -1,4 +1,5 @@
 from telebot import types
+from model.orders import OrderStatus
 
 # Клавиатуры админа
 
@@ -36,6 +37,19 @@ def generate_product_keyboard(product):
         )
         return markup
 
+def generate_change_status_keyboard(order):
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("Изменить статус", callback_data=f"change_status:{order.id}"))
+        return markup
+
+def generate_status_keyboard(order_id, order_status):
+        markup = types.InlineKeyboardMarkup()
+        for status in OrderStatus:
+                if status == order_status:
+                        continue
+                button = types.InlineKeyboardButton(text=status.value, callback_data=f"status:{status.name}:{order_id}")
+                markup.add(button)
+        return markup
 
 # Клавиатуры юзера
 

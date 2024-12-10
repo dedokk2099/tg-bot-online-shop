@@ -8,6 +8,8 @@ import requests
 import os
 import uuid
 
+from model.orders import get_orders, OrderStatus
+
 PHOTO_FOLDER = 'model/product_photos'
 # Создаем папку для хранения фото, если ее нет
 if not os.path.exists(PHOTO_FOLDER):
@@ -19,6 +21,15 @@ class AdminController:
         self.bot = bot
         self.products = database.get_products()
         self.user_states = {}
+        self.all_orders = get_orders() #все заказы
+        self.new_orders = get_orders(status=OrderStatus.PROCESSING)
+        self.completed_orders = get_orders(status=OrderStatus.RECEIVED)
+        # Заказы в работе - все кроме новых и полученных
+        self.in_progress_orders = [order for order in self.all_orders
+                                    if order.status not in (OrderStatus.PROCESSING, OrderStatus.RECEIVED)]
+        
+
+# Функции для работы с каталогом
 
     def generate_unique_id(self):
         while True:  # Гарантируем уникальность (хотя коллизия крайне маловероятна)
@@ -44,7 +55,7 @@ class AdminController:
             return
         
     def send_product_info(self, chat_id, product):
-        text = f"<b>{product['name']}</b>\nСтоимость: {product['price']} ₽\nОписание: {product['description']}\nКоличество на складе: {product['quantity']}"
+        text = f"<b>{product['name']}</b>\nСтоимость: {product['price']} ₽\nОписание: {product['description']}\nКоличество на складе: {product['stock_quantity']}"
         try:
             if product.get('image'):
                 image_url_or_path = product['image']
@@ -81,7 +92,7 @@ class AdminController:
             'Название': 'name',
             'Цена': 'price',
             'Описание': 'description',
-            'Количество': 'quantity',
+            'Количество': 'stock_quantity',
             'Изображение': 'image'
         }
         return translation.get(attribute_ru)
@@ -137,7 +148,7 @@ class AdminController:
                         # self.user_states.pop(chat_id, None)
                         return
                     attribute_en = self.translate_attribute(attribute_ru)
-                    if attribute_en in ['price', 'quantity']:
+                    if attribute_en in ['price', 'stock_quantity']:
                         float(message.text)
                     new_value = message.text
                     product[attribute_en] = new_value
@@ -243,10 +254,10 @@ class AdminController:
                 self.user_states[chat_id]['description'] = message.text
                 self.bot.send_message(chat_id, "Введите количество товара на складе:")
                 self.bot.register_next_step_handler(message, self.handle_add_product)
-        elif 'quantity' not in self.user_states[chat_id]:
+        elif 'stock_quantity' not in self.user_states[chat_id]:
             try:
-                quantity = float(message.text)  # Проверка на число
-                self.user_states[chat_id]['quantity'] = message.text
+                stock_quantity = float(message.text)  # Проверка на число
+                self.user_states[chat_id]['stock_quantity'] = message.text
                 self.bot.send_message(chat_id, "Теперь отправьте фото товара")
                 print(f"фото отправится сейчас for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
                 self.user_states[chat_id]['state'] = 3  # Переходим к шагу загрузки изображения
@@ -283,7 +294,7 @@ class AdminController:
                 'name': user_state['name'],
                 'price': user_state['price'],
                 'description': user_state['description'],
-                'quantity': user_state['quantity'],
+                'stock_quantity': user_state['stock_quantity'],
                 'image': photo_path,  # Добавляем фото
             }
 
@@ -309,8 +320,6 @@ class AdminController:
         # if chat_id not in self.user_states: #Проверка состояния
         #     return #Выход, если состояние не задано
         
-
-
         data = callback_data.split(":")
     
         if data[0] == "edit":
@@ -320,7 +329,7 @@ class AdminController:
             product_to_edit = next((p for p in self.products if p['id'] == product_id), None)
             self.user_states[chat_id] = {"state": 1, "product_id": product_id}
             print(f"изменили состояние chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
-            msg = self.bot.send_message(chat_id, f"Редактируем товар {product_to_edit['name']}\nСтоимость: {product_to_edit['price']} ₽\nОписание: {product_to_edit['description']}\nКоличество на складе: {product_to_edit['quantity']}\n\nЧто изменить?", reply_markup=keyboards.generate_edit_keyboard())
+            msg = self.bot.send_message(chat_id, f"Редактируем товар {product_to_edit['name']}\nСтоимость: {product_to_edit['price']} ₽\nОписание: {product_to_edit['description']}\nКоличество на складе: {product_to_edit['stock_quantity']}\n\nЧто изменить?", reply_markup=keyboards.generate_edit_keyboard())
             self.bot.register_next_step_handler(msg, self.handle_edit_attribute)
         elif data[0] == "delete":
             print(f"handle_callback (delete) called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
@@ -356,4 +365,82 @@ class AdminController:
         elif data[0] == "catalog":
             self.bot.send_message(chat_id, "Обновляю каталог...")
             self.show_catalog(call.message)
+        elif data[0] == "change_status":
+            print(f"handle_callback (change_status) called for chat_id: {chat_id}")
+            order_id = data[1]
+            order = self.find_order_by_id(order_id)
+            text = f"Вы хотите изменить статус заказа {order_id}\nТекущий статус: {order.status.value}\nВыберите новый статус:"
+            self.bot.send_message(chat_id, text, reply_markup=keyboards.generate_status_keyboard(order_id, order.status))
 
+    # Функции для работы с заказами
+    def send_order_info(self, order, chat_id):
+        items_str = "\n    ".join([f"- {item['product'].name} x {item['quantity']}" for item in order.items])
+        text = f"""Номер заказа: {order.id}
+    Статус: {order.status.value}
+    Дата и время: {order.order_datetime.strftime('%d.%m.%y %H:%M')}
+    Способ получения: {order.delivery_type.value}
+    Товары:
+    {items_str}
+    Итого: {order.total_sum}  ₽"""
+        self.bot.send_message(chat_id, text, reply_markup=keyboards.generate_change_status_keyboard(order))
+
+
+    def show_new_orders(self, message):
+        chat_id = message.chat.id
+        if self.new_orders:
+            for order in self.new_orders:
+                self.send_order_info(order, chat_id)
+        else:
+            self.bot.send_message(chat_id, "Нет новых заказов")
+
+
+    def show_in_progress_orders(self, message):
+        chat_id = message.chat.id
+        if self.in_progress_orders:
+            for order in self.in_progress_orders:
+                self.send_order_info(order, chat_id)
+        else:
+            self.bot.send_message(chat_id, "Нет заказов в работе")
+
+
+    def show_completed_orders(self, message):
+        chat_id = message.chat.id
+        if self.completed_orders:
+            for order in self.completed_orders:
+                self.send_order_info(order, chat_id)
+        else:
+            self.bot.send_message(chat_id, "Нет полученных заказов")
+
+    def find_order_by_id(self, order_id):
+        for order in self.all_orders:
+            if order.id == order_id:
+                return order
+        return None
+
+    def change_status(self, message, order_id):
+        new_status = message.text
+        order = self.find_order_by_id(order_id)
+        if order:
+            order.status = new_status  # Обновление статуса заказа
+            self.bot.answer_callback_query(call.id, f"Статус заказа {order_id} изменён на {new_status.value}")
+        else:
+            self.bot.answer_callback_query(call.id, f"Заказ с ID {order_id} не найден", show_alert=True)
+
+    def handle_change_status(self, call):
+        chat_id = call.message.chat.id
+        callback_data = call.data
+        print(f"Callback query received: Chat ID: {chat_id} Callback Data: {callback_data}")
+        print(f"handle_change_status called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
+        try:
+            new_status_name, order_id  = call.data.split(":")[1:]
+            new_status = OrderStatus[new_status_name]
+            order = self.find_order_by_id(order_id)
+            if order:
+                order.status = new_status  # Обновление статуса заказа
+                self.bot.answer_callback_query(call.id, f"Статус заказа {order_id} изменён на {new_status.value}")
+            else:
+                self.bot.answer_callback_query(call.id, f"Заказ с ID {order_id} не найден", show_alert=True)
+        except (IndexError, KeyError, ValueError) as e:
+            self.bot.answer_callback_query(call.id, f"Ошибка: {e}", show_alert=True)
+
+    

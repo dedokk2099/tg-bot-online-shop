@@ -9,10 +9,13 @@ def handle_user_catalog(message):
     bot.send_message(message.chat.id, "Список товаров в каталоге:")
 def handle_new_orders(message):
     bot.send_message(message.chat.id, "Список новых заказов:")
+    role_switcher_.admin_controller_.show_new_orders(message)
 def handle_in_progress(message):
     bot.send_message(message.chat.id, "Список заказов в работе:")
+    role_switcher_.admin_controller_.show_in_progress_orders(message)
 def handle_history(message):
     bot.send_message(message.chat.id, "Список выполненных заказов:")
+    role_switcher_.admin_controller_.show_completed_orders(message)
 def handle_my_orders(message):
     bot.send_message(message.chat.id, "Список заказов:")
 def handle_cart(message):
@@ -64,6 +67,11 @@ def handle_user_menu(message):
 @bot.message_handler(func=lambda message: True)
 def handle_unknown(message):
     bot.send_message(message.chat.id, "Неизвестная команда")
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("status"))
+def handle_status_callback(call):
+    role_switcher_.admin_controller_.handle_change_status(call)
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_callback_query(call):
