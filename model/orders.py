@@ -57,6 +57,7 @@ def get_orders(customer_id=None, status=None):
         if status is not None and order.status != status:
             continue
         orders.append(order)
+    orders.sort(key=lambda order: order.order_datetime, reverse=True)
     return orders
 
 #Пример использования

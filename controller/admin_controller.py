@@ -23,7 +23,9 @@ class AdminController:
         self.products = database.get_products()
         self.user_states = {}
         self.order_message_map = {}
+        self.product_message_map = {}
         self.all_orders = get_orders()
+        self.confirmation_message_id = None
 
 # Функции для работы с каталогом
 
@@ -73,9 +75,10 @@ class AdminController:
                 image_io = io.BytesIO()
                 image.save(image_io, format='JPEG')
                 image_io.seek(0)
-                self.bot.send_photo(chat_id, image_io, caption=text, parse_mode="HTML", reply_markup=keyboards.generate_product_keyboard(product))
+                msg = self.bot.send_photo(chat_id, image_io, caption=text, parse_mode="HTML", reply_markup=keyboards.generate_product_keyboard(product))
             else:
-                self.bot.send_message(chat_id, text, parse_mode="HTML", reply_markup=keyboards.generate_product_keyboard(product))
+                msg = self.bot.send_message(chat_id, text, parse_mode="HTML", reply_markup=keyboards.generate_product_keyboard(product))
+            self.product_message_map[product['id']] = msg.message_id
         except requests.exceptions.RequestException as e:
             self.bot.send_message(chat_id, f"Ошибка загрузки изображения для товара {product['name']}: {e}")
             self.bot.send_message(chat_id, text, parse_mode="HTML", reply_markup=keyboards.generate_product_keyboard(product))
@@ -320,7 +323,6 @@ class AdminController:
     
         if data[0] == "edit":
             print(f"handle_callback (edit) called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
-            # product_index = int(data[1])
             product_id = data[1]
             product_to_edit = next((p for p in self.products if p['id'] == product_id), None)
             self.user_states[chat_id] = {"state": 1, "product_id": product_id}
@@ -335,40 +337,62 @@ class AdminController:
                 if product_to_delete is None:
                     self.bot.answer_callback_query(call.id, text="Товар не найден!")
                     return
-
                 product_name = product_to_delete.get('name')
-                self.products.remove(product_to_delete)  # Удаляем по значению
-                print(f"Товар {product_name} удален!")
 
-                try:
-                    self.bot.delete_message(chat_id, call.message.message_id)
-                except telebot.apihelper.ApiTelegramException as e:
-                    print(f"Ошибка при удалении сообщения: {e}")
-                    self.bot.answer_callback_query(call.id, text="Не удалось удалить сообщение.")
-                    return
-
-                self.bot.send_message(chat_id, f"Товар {product_name} удален!")
-                self.bot.answer_callback_query(call.id, text="Товар удален!")
-
+                markup = types.InlineKeyboardMarkup()
+                markup.add(types.InlineKeyboardButton("Да", callback_data=f"confirm_delete:{product_id}"),
+                   types.InlineKeyboardButton("Нет", callback_data="cancel_delete"))
+                msg = self.bot.send_message(chat_id, f"Вы подтверждаете удаление товара <b>{product_name}</b>?", parse_mode="HTML", reply_markup=markup)
+                self.confirmation_message_id = msg.message_id
             except Exception as e:
                 print(f"Ошибка при удалении товара: {e}")
                 self.bot.answer_callback_query(call.id, text="Ошибка при удалении товара.")
-
+        elif data[0] == "confirm_delete":
+            print(f"handle_callback (confirm_delet) called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
+            product_id = data[1]
+            product_to_delete = next((p for p in self.products if p['id'] == product_id), None)
+            if product_to_delete is None:
+                self.bot.answer_callback_query(call.id, text="Товар не найден!")
+                return
+            product_name = product_to_delete.get('name')
+            self.products.remove(product_to_delete)
+            self.bot.edit_message_text(f"Товар {product_name} удален!", chat_id, self.confirmation_message_id) #Редактируем сообщение с подтверждением
+            self.bot.answer_callback_query(call.id, text="Товар удален!")
+            try:
+                message_id_to_delete = self.product_message_map.get(product_id)
+                if message_id_to_delete is None:
+                    self.bot.answer_callback_query(call.id, text="Сообщение с товаром не найдено!")
+                    return
+                self.bot.delete_message(chat_id, message_id_to_delete)
+                del self.product_message_map[product_id]
+            except telebot.apihelper.ApiTelegramException as e:
+                print(f"Ошибка при удалении сообщения: {e}")
+        elif data[0] == "cancel_delete":
+            print(f"handle_callback (cancel_delete) called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
+            self.bot.answer_callback_query(call.id, text="Удаление отменено")
+            self.bot.edit_message_text("Удаление отменено", chat_id, self.confirmation_message_id) #Редактируем сообщение с подтверждением
         elif data[0] == "add":
+            print(f"handle_callback (add) called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
             self.user_states[chat_id] = {"state": 2}  # Состояние добавления
             self.bot.send_message(chat_id, "Введите название товара:")
             self.bot.register_next_step_handler(call.message, self.handle_add_product)
         elif data[0] == "catalog":
+            print(f"handle_callback (catalog) called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
             self.bot.send_message(chat_id, "Обновляю каталог...")
             self.show_catalog(call.message)
         elif data[0] == "change_status":
             print(f"handle_callback (change_status) called for chat_id: {chat_id}")
             order_id = data[1]
             order = self.find_order_by_id(order_id)
-            text = f"Вы хотите изменить статус заказа <b>{order_id}</b>\nТекущий статус: <b>{order.status.value}</b>\nВыберите новый статус:"
-            self.bot.send_message(chat_id, text, parse_mode='html', reply_markup=keyboards.generate_status_keyboard(order_id, order.status))
-
+            if order:
+                text = f"Вы хотите изменить статус заказа <b>{order_id}</b>\nТекущий статус: <b>{order.status.value}</b>\nВыберите новый статус:"
+                self.bot.send_message(chat_id, text, parse_mode='html', reply_markup=keyboards.generate_status_keyboard(order_id, order.status))
+            else:
+                self.bot.answer_callback_query(call.id, f"Заказ с ID {order_id} не найден", show_alert=True)
+        
+   
     # Функции для работы с заказами
+
     def send_order_info(self, order, chat_id):
         items_str = ""
         for i, item in enumerate(order.items):
@@ -386,8 +410,8 @@ class AdminController:
 {items_str}
 Итого: {order.total_sum} ₽"""
 
-        message = self.bot.send_message(chat_id, text, parse_mode='html', reply_markup=keyboards.generate_change_status_keyboard(order))
-        self.order_message_map[order.id] = message.message_id
+        msg = self.bot.send_message(chat_id, text, parse_mode='html', reply_markup=keyboards.generate_change_status_keyboard(order))
+        self.order_message_map[order.id] = msg.message_id
 
 
     def show_new_orders(self, message):
@@ -401,6 +425,7 @@ class AdminController:
 
     def show_in_progress_orders(self, message):
         chat_id = message.chat.id
+        self.all_orders = get_orders()
         in_progress_orders = [order for order in self.all_orders
                                     if order.status not in (OrderStatus.PROCESSING, OrderStatus.RECEIVED)]
         if in_progress_orders:
@@ -419,6 +444,7 @@ class AdminController:
             self.bot.send_message(chat_id, "Нет выполненных заказов")
 
     def find_order_by_id(self, order_id):
+        self.all_orders = get_orders()
         for order in self.all_orders:
             if order.id == order_id:
                 return order
@@ -444,5 +470,3 @@ class AdminController:
                 self.bot.answer_callback_query(call.id, f"Заказ с ID {order_id} не найден", show_alert=True)
         except (IndexError, KeyError, ValueError) as e:
             self.bot.answer_callback_query(call.id, f"Ошибка: {e}", show_alert=True)
-
-    
