@@ -1,7 +1,9 @@
 import datetime
-import enum
-from model.products import products_as_class
+import enum, sys
 
+sys.path.insert(1, '/path/to/model')
+
+from products import products_as_class
 
 class OrderStatus(enum.Enum):
     PROCESSING = 'в обработке'
@@ -15,7 +17,7 @@ class DeliveryType(enum.Enum):
     DELIVERY = 'доставка'
 
 class Order:
-    def __init__(self, customer_id, items, delivery_type):
+    def __init__(self, customer_id, items, delivery_type, order_datetime):
         self.id = f"{customer_id}_{Order.generate_order_id(customer_id, orders_by_customer)}"
         self.status = OrderStatus.PROCESSING
         self.order_datetime = datetime.datetime.now()
@@ -28,7 +30,6 @@ class Order:
     def generate_order_id(customer_id, orders_by_customer):
         return len(orders_by_customer.get(customer_id, [])) + 1
 
-
     def calculate_total(self):
         total = 0
         for item in self.items:
@@ -36,13 +37,13 @@ class Order:
         return total
 
     def __repr__(self):
-        return f"Order(id={self.id}, status={self.status}, total={self.total_sum})"
+        return f"Order(id={self.id}, status={self.status}, total={self.total_sum}, datetime={order.order_datetime})"
 
 # Используем словарь для хранения заказов, индексированный по customer_id
 orders_by_customer = {}
 
-def add_new_order(customer_id, items, delivery_type):
-    new_order = Order(customer_id, items, delivery_type)
+def add_new_order(customer_id, items, delivery_type, order_datetime):
+    new_order = Order(customer_id, items, delivery_type, order_datetime)
     if customer_id not in orders_by_customer:
         orders_by_customer[customer_id] = []
     orders_by_customer[customer_id].append(new_order)
@@ -72,16 +73,15 @@ order_items4 = [
     {'product': products_as_class[2], 'quantity': 2}
     ]
 
-add_new_order('user123', order_items1, DeliveryType.PICKUP)
-add_new_order('user123', order_items2, DeliveryType.DELIVERY)
-add_new_order('user456', order_items3, DeliveryType.PICKUP)
-add_new_order('user456', order_items4, DeliveryType.DELIVERY)
+add_new_order('user123', order_items1, DeliveryType.PICKUP, datetime)
+add_new_order('user123', order_items2, DeliveryType.DELIVERY, datetime)
+add_new_order('user456', order_items3, DeliveryType.PICKUP, datetime)
+add_new_order('user456', order_items4, DeliveryType.DELIVERY, datetime)
 
 import pprint
 
 for customer_id, orders in orders_by_customer.items():
     print(f"Заказы клиента {customer_id}:")
     for order in orders:
-        print(f"  - ID: {order.id}, Статус: {order.status.value}, Сумма: {order.total_sum}")
+        print(f"  - ID: {order.id}, Статус: {order.status.value}, Сумма: {order.total_sum}, Время: {order.order_datetime}")
     print()
-
