@@ -3,7 +3,7 @@ import enum, sys
 
 sys.path.insert(1, '/path/to/model')
 
-from products import products_as_class
+from model.products import products_as_class
 
 class OrderStatus(enum.Enum):
     PROCESSING = 'в обработке'

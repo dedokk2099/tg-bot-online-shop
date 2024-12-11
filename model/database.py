@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, se
+from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 import os,sys
@@ -6,8 +6,8 @@ import sqlite3
 
 sys.path.insert(1, '/path/to/model')
 
-import products as products
-import orders as orders
+#import products as products
+#import orders as orders
 
 Base = declarative_base()
 engine = create_engine('sqlite:///model/shop.db')
@@ -19,6 +19,7 @@ class Users(Base):
     id = Column(Integer, primary_key=True)
     chat_id = Column(String, unique=True, nullable=False)
     role = Column(String, unique=False, nullable=False)
+    
 
     # связи
     # order_id = Column(Integer, ForeignKey('orders.id'))
@@ -58,27 +59,40 @@ class User:
 class Shop(Base):
     __tablename__ = 'shop'
     id = Column(Integer, primary_key=True)
-    product_id = Column(String, nullable=False) # добавление id предмета
+    product_id = Column(String, unique=True, nullable=False) # добавление id предмета
     name = Column(String, nullable=False)
     price = Column(Integer, nullable=False)
     description = Column(String, nullable=False)
     stock_quantity = Column(Integer, nullable=False)
     image = Column(String, nullable=False)
 
+    # связи
+    orders = relationship('Basket', back_populates='items')
+
+class Basket(Base):
+    __tablename__ = 'basket'
+    id = Column(Integer, primary_key=True)
+    order_id = Column(Integer, ForeignKey('orders.number_order'), nullable=False)
+    item_id = Column(Integer, ForeignKey('shop.product_id'), nullable=False)
+
+    orders = relationship('Orders', back_populates='items')
+    items = relationship('Shop', back_populates='orders')
+
 # база данных заказов
 class Orders(Base):
     __tablename__ = 'orders'
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    number_order = Column(Integer, nullable=False)
+    user_id = Column(Integer, ForeignKey('users.chat_id'), nullable=False)
+    number_order = Column(Integer, unique=True, nullable=False)
     status = Column(String, nullable=False)
     total_sum = Column(Integer, nullable=False)
     datetime = Column(String, nullable=False)
     
     # связи
     users = relationship('Users', back_populates='user_orders')
+    items = relationship('Basket', back_populates='orders')
 
-# Base.metadata.create_all(engine)
+Base.metadata.create_all(engine)
 
 # функция добавления товара
 def addItem(item_id, item_name, item_price, item_description, item_quantity, item_image):
@@ -102,7 +116,7 @@ def updateItemAttribute(item_id, item_attribute, item_value):
     elif item_attribute =='description':
         item.description = item_value
     elif item_attribute == 'quantity':
-        item.stock_quantityy = item_value
+        item.stock_quantity = item_value
     elif item_attribute == 'image':
         item.image = item_value
 
@@ -111,7 +125,7 @@ def updateItemAttribute(item_id, item_attribute, item_value):
 
 # функция добавления заказа
 def addOrder(order_user, order_id, order_status, order_sum, order_datetime):
-    order = Orders(users=order_user, number_order=order_id, status=order_status, total_sum=order_sum, datetime=order_datetime, )
+    order = Orders(users=order_user, number_order=order_id, status=order_status, total_sum=order_sum, datetime=order_datetime)
     session.add(order)
     session.commit()
 
@@ -122,23 +136,57 @@ def addOrder(order_user, order_id, order_status, order_sum, order_datetime):
 
 # вывод данных из базы товаров в виде списка
 def get_products():
-    products_list = session.query(Shop).all()
-    print(product_list)
+    products_db = session.query(Shop).all()
+    products_list = []
+    for item in products_db:
+        products_list.append({'id': item.id, "name": item.name, "price": item.price, "description": item.description, "stock_quantity": item.stock_quantity, 'image': item.image})
+    return products_list
 
 # вывод данных из базы заказов в виде списка
 def get_orders():
-    orders_list = session.query(Orders).all()
-    print(orders_list)
-
-get_products()
+    orders_db = session.query(Orders).all()
+    orders_list = []
+    for order in orders_db:
+        orders_list.append({'id': order.id, "user_id": order.user_id, "number_order": order.number_order, "status": order.status, "total_sum": order.total_sum, "datetime": order.datetime})
+    return orders_list
 
 # Пример добавления (с удалением по id, если пользователь уже в базе)
 
-#id = 'xxx' #вставьте необходимый
+# id = '2023435947' #вставьте необходимый
 # user = session.query(Users).filter_by(chat_id=id).first()
 # session.delete(user)
 # session.commit()
 
-# new_admin = Users(chat_id=id, role = 'Admin')
-# session.add(number)
+# user = session.query(Shop).first()
+# session.delete(user)
 # session.commit()
+
+# new_admin = Users(chat_id='884454010', role = 'Admin')
+# session.add(new_admin)
+# session.commit()
+
+#addOrder(user, 113424, 'efefв', 1323, '3141432')
+# addOrder(user, 13451234, 'XFafwq', 35623, '1432')
+# addOrder(user, 15675624, 'r fwwfe', 245324, '3141')
+
+# addItem(122, 'Хлеб', 100, 'Свежий хлеб', 30, '')
+# addItem(345, 'Молоко', 160, 'Птичье молоко', 7, '')
+# addItem(555, 'Телефон', 1000, 'Айфон на андроид', 1, '')
+
+
+# order = session.query(Orders).filter_by(number_order=113424).first()
+# item = session.query(Shop).filter_by(product_id=555).first()
+# basket = Basket(orders=order, items=item)
+# session.add(basket)
+# session.commit()
+
+# basket = Basket(order_id=113424, item_id=345)
+# session.add(basket)
+# session.commit()
+# basket = Basket(113424, 122)
+# session.add(basket)
+# session.commit()
+
+# updateItemAttribute(122, 'image', 'https://avatars.mds.yandex.net/i?id=45760c598fc7066e3b979e0574d1f5c504e023c6-10414509-images-thumbs&n=13')
+# updateItemAttribute(345, 'image', 'https://cdn-img.perekrestok.ru/i/800x800-fit/xdelivery/files/5f/0c/6c03e02b315c21a6d1daca6bb029.jpg')
+# updateItemAttribute(555, 'image', 'https://avatars.mds.yandex.net/i?id=5920a940a44bbefcb98868342436b832_l-4292261-images-thumbs&n=13')
