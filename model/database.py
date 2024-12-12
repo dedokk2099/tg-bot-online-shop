@@ -129,10 +129,20 @@ def addOrder(order_user, order_id, order_status, order_sum, order_datetime):
     session.add(order)
     session.commit()
 
-# добавление товаров из products.py
-# for i in range(len(products.products)):
-#    addItem(products.products[i]['id'], products.products[i]['name'], products.products[i]['price'], products.products[i]# ['description'], products.products[i]['stock_quantity'], products.products[i]['image'])
+# функция добавления в класс Basket
+def addBasket(order_id, item_id):
+    basket = Basket(order_id=order_id, item_id=item_id)
+    session.add(basket)
+    session.commit()
 
+# функция вывода данных из класса Basket
+def get_basket():
+    basket_db = session.query(Basket).all()
+    basket_list = []
+    for basket in basket_db:
+        basket_list.append({'id': basket.id, 'order_id': basket.order_id, 'item_id': basket.item_id})
+    return basket_list
+    # print(basket_list)
 
 # вывод данных из базы товаров в виде списка
 def get_products():
@@ -140,6 +150,7 @@ def get_products():
     products_list = []
     for item in products_db:
         products_list.append({'id': item.id, "name": item.name, "price": item.price, "description": item.description, "stock_quantity": item.stock_quantity, 'image': item.image})
+    # print(products_list)
     return products_list
 
 # вывод данных из базы заказов в виде списка
@@ -148,9 +159,44 @@ def get_orders():
     orders_list = []
     for order in orders_db:
         orders_list.append({'id': order.id, "user_id": order.user_id, "number_order": order.number_order, "status": order.status, "total_sum": order.total_sum, "datetime": order.datetime})
+    # print(orders_list)
     return orders_list
 
-# Пример добавления (с удалением по id, если пользователь уже в базе)
+# функция изменения статуса заказа
+def changeStatus(number_order, order_status):
+    order = session.query(Orders).filter_by(number_order=number_order).first()
+    order.status = order_status
+    session.commit()
+
+# функция вывода заказов конкретного пользователя
+def get_user_orders(user_id):
+    #all_user_order = session.query(Orders, Users).join(Users).all()
+    user_orders = session.query(Orders).filter_by(user_id=user_id).all()
+    user_orders_list = []
+    for order in user_orders:
+        user_orders_list.append({'id': order.id, 'number_order': order.number_order, 'status': order.status, 'total_sum': order.total_sum, 'datetime': order.datetime})
+    # print(user_orders_list)
+    return user_orders_list
+
+# функция вывода заказов конкретного пользователя по заданному статусу
+def get_user_status_orders(user_id, order_status):
+    user_orders = session.query(Orders).filter_by(user_id=user_id, status=order_status).all()
+    user_orders_list = []
+    for order in user_orders:
+        user_orders_list.append({'id': order.id, 'number_order': order.number_order, 'total_sum': order.total_sum, 'datetime': order.datetime})
+    # print(user_orders_list)
+    return user_orders_list
+
+# функция вывода заказов конкретного пользователя кроме конкретного статуса
+def get_user_except_orders(user_id, order_status):
+    user_orders = session.query(Orders).filter(Orders.user_id == user_id, Orders.status != order_status).all()
+    user_orders_list = []
+    for order in user_orders:
+        user_orders_list.append({'id': order.id, 'number_order': order.number_order, 'total_sum': order.total_sum, 'datetime': order.datetime})
+    # print(user_orders_list)
+    return user_orders_list
+
+
 
 # id = '2023435947' #вставьте необходимый
 # user = session.query(Users).filter_by(chat_id=id).first()
@@ -165,8 +211,8 @@ def get_orders():
 # session.add(new_admin)
 # session.commit()
 
-#addOrder(user, 113424, 'efefв', 1323, '3141432')
-# addOrder(user, 13451234, 'XFafwq', 35623, '1432')
+# addOrder(user, 113424, 'efefв', 1323, '3141432')
+# addOrder(2023435948, 13451234, 'XFafwq', 35623, '1432')
 # addOrder(user, 15675624, 'r fwwfe', 245324, '3141')
 
 # addItem(122, 'Хлеб', 100, 'Свежий хлеб', 30, '')
