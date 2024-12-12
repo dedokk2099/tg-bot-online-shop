@@ -1,7 +1,7 @@
 import datetime
 import enum
 from model.products import products_as_class
-
+import model.database as database
 
 class OrderStatus(enum.Enum):
     PROCESSING = 'в обработке'
@@ -41,7 +41,10 @@ class Order:
 orders_by_customer = {}
 
 def add_new_order(customer_id, items, delivery_type):
+    
     new_order = Order(customer_id, items, delivery_type)
+    database.addOrder(customer_id, new_order.id, new_order.status, new_order.total_sum, delivery_type,new_order.order_datetime)
+    database.addBasket()
     if customer_id not in orders_by_customer:
         orders_by_customer[customer_id] = []
     orders_by_customer[customer_id].append(new_order)
