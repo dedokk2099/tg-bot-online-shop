@@ -75,7 +75,7 @@ class Basket(Base):
     order_id = Column(Integer, ForeignKey('orders.number_order'), nullable=False)
     item_id = Column(Integer, ForeignKey('shop.product_id'), nullable=False)
     quantity = Column(Integer, nullable=False)
-    #price = Column(Integer, nullable=False)
+    price = Column(Integer, nullable=False)
 
     #связи
     orders = relationship('Orders', back_populates='items')
