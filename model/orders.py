@@ -1,5 +1,6 @@
 import datetime
-import enum
+import enum, sys
+#sys.path.insert(1, '/path/to/model')
 from model.products import products_as_class
 import model.database as database
 
@@ -15,8 +16,8 @@ class DeliveryType(enum.Enum):
     DELIVERY = 'доставка'
 
 class Order:
-    def __init__(self, customer_id, items, delivery_type):
-        self.id = f"{customer_id}_{Order.generate_order_id(customer_id, orders_by_customer)}"
+    def __init__(self, customer_id, items, delivery_type, order_number):
+        self.id = order_number
         self.status = OrderStatus.PROCESSING
         self.order_datetime = datetime.datetime.now()
         self.delivery_type = delivery_type
@@ -40,11 +41,18 @@ class Order:
 # Используем словарь для хранения заказов, индексированный по customer_id
 orders_by_customer = {}
 
+def fill_orders_by_customer():
+    orders = database.get_orders()
+    for order in orders:
+        if order.customer_id not in orders_by_customer:
+            orders_by_customer[order.customer_id].append(order)
+
 def add_new_order(customer_id, items, delivery_type):
     
     new_order = Order(customer_id, items, delivery_type)
     database.addOrder(customer_id, new_order.id, new_order.status, new_order.total_sum, delivery_type,new_order.order_datetime)
-    database.addBasket()
+    #for item in range(len(items)):
+    #    database.addBasket(new_order.id, items[item]['item_id'], items[item]['quantity'], items[item]['price'])
     if customer_id not in orders_by_customer:
         orders_by_customer[customer_id] = []
     orders_by_customer[customer_id].append(new_order)
@@ -74,6 +82,7 @@ order_items4 = [
     {'product': products_as_class[1], 'quantity': 3}, 
     {'product': products_as_class[2], 'quantity': 2}
     ]
+
 
 add_new_order('user123', order_items1, DeliveryType.PICKUP)
 add_new_order('user123', order_items2, DeliveryType.DELIVERY)

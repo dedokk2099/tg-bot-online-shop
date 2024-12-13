@@ -5,7 +5,7 @@ from telebot import types
 from PIL import Image
 import io
 import requests
-import os
+import os, sys
 import uuid
 from html import escape #для экранирования html символов
 
@@ -461,6 +461,10 @@ class AdminController:
             order = self.find_order_by_id(order_id)
             if order:
                 order.status = new_status  # Обновление статуса заказа
+
+                # вызов функции изменения статуса заказа
+                database.changeStatus(order_id, new_status)
+
                 self.bot.send_message(chat_id, f"Статус заказа {order_id} изменён на '{new_status.value}'")
                 message_id_to_delete = self.order_message_map.get(order_id)  # Извлекаем message_id из словаря по order_id
                 if message_id_to_delete:

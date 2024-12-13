@@ -20,3 +20,4 @@ products = [
 
 #Позднее нужно будет переименовать в products
 products_as_class = [Product(**data) for data in products]
+#print(products_as_class)

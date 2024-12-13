@@ -4,10 +4,11 @@ from sqlalchemy.orm import sessionmaker, relationship
 import os,sys
 import sqlite3
 
-sys.path.insert(1, '/path/to/model')
-
-#import products as products
-#import orders as orders
+# sys.path.insert(1, '/path/to/model')
+import model.products as products
+import model.orders as orders
+from model.products import Product
+from model.orders import Order
 
 Base = declarative_base()
 engine = create_engine('sqlite:///model/shop.db')
@@ -96,6 +97,7 @@ class Orders(Base):
     users = relationship('Users', back_populates='user_orders')
     items = relationship('Basket', back_populates='orders')
 
+# Base.metadata.drop_all(engine)
 Base.metadata.create_all(engine)
 
 # функция добавления товара
@@ -134,8 +136,8 @@ def addOrder(user_id, order_id, order_status, order_sum, delivery_type, order_da
     session.commit()
 
 # функция добавления в класс Basket
-def addBasket(order_id, item_id, quantity):
-    basket = Basket(order_id=order_id, item_id=item_id, quantity=quantity)
+def addBasket(order_id, item_id, quantity, price):
+    basket = Basket(order_id=order_id, item_id=item_id, quantity=quantity, price=price)
     session.add(basket)
     session.commit()
 
@@ -144,14 +146,15 @@ def get_basket():
     basket_db = session.query(Basket).all()
     basket_list = []
     for basket in basket_db:
-        basket_list.append({'id': basket.id, 'order_id': basket.order_id, 'item_id': basket.item_id})
+        basket_list.append({'id': basket.id, 'order_id': basket.order_id, 'item_id': basket.item_id, 'quantity': basket.quantity, 'price': basket.price})
     return basket_list
     # print(basket_list)
 
 # функция вывода данных из класса Basket
 def get_products_by_order_number(order_number):
-    products = session.query(Shop).join(Basket).filter(Basket.order_number == order_number).all()
-    return products
+    products = session.query(Shop).join(Basket).filter(Basket.order_id == order_number).all()
+    products_as_class = [Produc(**data) for data in products]
+    return products_as_class
 
 # вывод данных из базы товаров в виде списка
 def get_products():
@@ -167,12 +170,14 @@ def get_orders():
     orders_db = session.query(Orders).all()
     orders_list = []
     for order in orders_db:
-        orders_list.append({'id': order.id, "user_id": order.user_id, "number_order": order.number_order, "status": order.status, "total_sum": order.total_sum, "datetime": order.datetime})
+        items = get_products_by_order_number(order.number_order)
+        exist_order = Order(order.user_id, items, order.delivery_type, order.order_number)
+        orders_list.append(exist_order)
     # print(orders_list)
     return orders_list
 
 # функция изменения статуса заказа
-def changeStatus(number_order, order_status):
+def change_status(number_order, order_status):
     order = session.query(Orders).filter_by(number_order=number_order).first()
     order.status = order_status
     session.commit()
@@ -204,7 +209,6 @@ def get_user_except_orders(user_id, order_status):
         user_orders_list.append({'id': order.id, 'number_order': order.number_order, 'total_sum': order.total_sum, 'datetime': order.datetime})
     # print(user_orders_list)
     return user_orders_list
-
 
 
 # id = '2023435947' #вставьте необходимый
