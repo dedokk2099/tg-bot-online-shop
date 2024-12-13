@@ -45,7 +45,8 @@ def fill_orders_by_customer():
     orders = database.get_orders()
     for order in orders:
         if order.customer_id not in orders_by_customer:
-            orders_by_customer[order.customer_id].append(order)
+            orders_by_customer[order.customer_id] = []
+        orders_by_customer[order.customer_id].append(order)
 
 def add_new_order(customer_id, items, delivery_type):
     
