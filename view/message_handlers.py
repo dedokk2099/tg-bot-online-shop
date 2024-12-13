@@ -5,21 +5,24 @@ role_switcher_ = RoleSwitcher(bot)
 
 def handle_admin_catalog(message):
     role_switcher_.admin_controller_.show_catalog(message)
-def handle_user_catalog(message):
-    bot.send_message(message.chat.id, "Список товаров в каталоге:")
 def handle_new_orders(message):
     bot.send_message(message.chat.id, "Список новых заказов:")
     role_switcher_.admin_controller_.show_new_orders(message)
 def handle_in_progress(message):
     bot.send_message(message.chat.id, "Список заказов в работе:")
     role_switcher_.admin_controller_.show_in_progress_orders(message)
-def handle_history(message):
+def handle_admin_history(message):
     bot.send_message(message.chat.id, "Список выполненных заказов:")
     role_switcher_.admin_controller_.show_completed_orders(message)
-def handle_my_orders(message):
-    bot.send_message(message.chat.id, "Список заказов:")
+
+def handle_user_catalog(message):
+    role_switcher_.user_controller_.show_catalog(message)
 def handle_cart(message):
-    bot.send_message(message.chat.id, "Список товаров в корзине:")
+    role_switcher_.user_controller_.show_cart(message, call = None)
+def handle_open_orders(message):
+    role_switcher_.user_controller_.show_open_orders(message)
+def handle_user_history(message):
+    role_switcher_.user_controller_.show_received_orders(message)
 def handle_unknown(message):
     bot.send_message(message.chat.id, "Неизвестная команда")
 
@@ -51,18 +54,20 @@ def handle__admin_menu(message):
         elif message.text == "В работе":
             handle_in_progress(message)
         elif message.text == "История":
-            handle_history(message)
+            handle_admin_history(message)
     else:
         bot.send_message(message.chat.id, "Неизвестная команда")
 
-@bot.message_handler(func=lambda message: message.text in ["Товары", "Мои заказы", "Корзина"])
+@bot.message_handler(func=lambda message: message.text in ["Товары", "Корзина", "Открытые заказы", "История заказов"])
 def handle_user_menu(message):
     if message.text == "Товары":
         handle_user_catalog(message)
-    elif message.text == "Мои заказы":
-        handle_my_orders(message)
     elif message.text == "Корзина":
         handle_cart(message)
+    elif message.text == "Открытые заказы":
+        handle_open_orders(message)
+    elif message.text == "История заказов":
+        handle_user_history(message)
 
 @bot.message_handler(func=lambda message: True)
 def handle_unknown(message):
@@ -72,6 +77,14 @@ def handle_unknown(message):
 @bot.callback_query_handler(func=lambda call: call.data.startswith("status"))
 def handle_status_callback(call):
     role_switcher_.admin_controller_.handle_change_status(call)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("user"))
+def handle_user_callback(call):
+    role_switcher_.user_controller_.handle_callback(call)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("cart"))
+def handle_user_callback(call):
+    role_switcher_.user_controller_.handle_cart_callback(call)
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_callback_query(call):

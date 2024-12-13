@@ -56,7 +56,47 @@ def generate_status_keyboard(order_id, order_status):
 def generate_user_keyboard():
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
         button_catalog = types.KeyboardButton("Товары")
-        button_my_orders = types.KeyboardButton("Мои заказы")
         button_cart = types.KeyboardButton("Корзина")
-        markup.add(button_catalog, button_my_orders, button_cart)
+        button_open_orders = types.KeyboardButton("Открытые заказы")
+        button_history = types.KeyboardButton("История заказов")
+        markup.add(button_catalog, button_cart) 
+        markup.add(button_open_orders, button_history)
+        return markup
+
+def generate_add_to_cart_keyboard(product_id):
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("Добавить в корзину", callback_data=f"user:add:{product_id}"))
+        return markup
+
+def generate_go_to_cart_keyboard(product_id, number):
+        markup = types.InlineKeyboardMarkup()
+        markup.row_width = 3 #Указываем ширину ряда в 3 кнопки
+        markup.add(
+            types.InlineKeyboardButton("-", callback_data=f"user:decrease:{product_id}"),
+            types.InlineKeyboardButton(f"{number} шт.", callback_data="number"),
+            types.InlineKeyboardButton("+", callback_data=f"user:increase:{product_id}")
+        )
+        markup.add(types.InlineKeyboardButton("Перейти в корзину", callback_data=f"user:go_to_cart"))
+        return markup
+
+def generate_cart_item_keyboard(product_id, number):
+        markup = types.InlineKeyboardMarkup()
+        markup.row_width = 3
+        markup.add(
+            types.InlineKeyboardButton("-", callback_data=f"cart:decrease:{product_id}"),
+            types.InlineKeyboardButton(f"{number} шт.", callback_data="number"),
+            types.InlineKeyboardButton("+", callback_data=f"cart:increase:{product_id}")
+        )
+        markup.add(types.InlineKeyboardButton("Удалить из корзины", callback_data=f"cart:remove:{product_id}"))
+        return markup
+
+def generate_cart_keyboard():
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("Очистить корзину", callback_data="cart:clear"))
+        markup.add(types.InlineKeyboardButton("Оформить заказ", callback_data="cart:add"))
+        return markup
+
+def generate_watch_products_keyboard(order):
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("Посмотреть товары", callback_data=f"user:watch:{order.id}"))
         return markup
