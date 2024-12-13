@@ -153,7 +153,7 @@ def get_basket():
 # функция вывода данных из класса Basket
 def get_products_by_order_number(order_number):
     products = session.query(Shop).join(Basket).filter(Basket.order_id == order_number).all()
-    products_as_class = [Produc(**data) for data in products]
+    products_as_class = [Product(**data) for data in products]
     return products_as_class
 
 # вывод данных из базы товаров в виде списка
