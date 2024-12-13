@@ -83,9 +83,18 @@ def handle_user_callback(call):
     role_switcher_.user_controller_.handle_callback(call)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("cart"))
-def handle_user_callback(call):
+def handle_cart_callback(call):
     role_switcher_.user_controller_.handle_cart_callback(call)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("delivery"))
+def handle_delivery_callback(call):
+    role_switcher_.user_controller_.handle_delivery_callback(call)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("payment"))
+def handle_payment_callback(call):
+    role_switcher_.user_controller_.handle_payment_callback(call)
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_callback_query(call):
     role_switcher_.admin_controller_.handle_callback(call)
+

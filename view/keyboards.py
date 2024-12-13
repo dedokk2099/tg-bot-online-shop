@@ -100,3 +100,16 @@ def generate_watch_products_keyboard(order):
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("Посмотреть товары", callback_data=f"user:watch:{order.id}"))
         return markup
+
+def generate_delivery_type_keyboard():
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("Самовывоз", callback_data=f"delivery:pickup"))
+        markup.add(types.InlineKeyboardButton("Доставка", callback_data=f"delivery:delivery"))
+        return markup
+
+def generate_payment_type_keyboard(delivery_type, delivery_address=None):
+        print(f"generate_payment_type_keyboard: delivery_address: {delivery_address}, type of delivery_address: {type(delivery_address)}")
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("Онлайн", callback_data=f"payment:online:{delivery_type.value}:{delivery_address}"))
+        markup.add(types.InlineKeyboardButton("При получении", callback_data=f"payment:on_delivery:{delivery_type.value}:{delivery_address}"))
+        return markup

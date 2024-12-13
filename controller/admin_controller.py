@@ -409,7 +409,8 @@ class AdminController:
 Состав заказа:
 {items_str}
 Итого: {order.total_sum} ₽"""
-
+        if order.delivery_address:
+            text += f"\n\nАдрес доставки: {order.delivery_address}"
         msg = self.bot.send_message(chat_id, text, parse_mode='html', reply_markup=keyboards.generate_change_status_keyboard(order))
         self.order_message_map[order.id] = msg.message_id
 

@@ -25,10 +25,10 @@ class User:
                 items.append({'product': product, 'quantity': quantity}) # Добавляем товар в список для заказа
         return items
 
-    def create_order(self, delivery_type):
+    def create_order(self, delivery_type, delivery_address=None):
         items = self.get_cart_items()
         if items:
-            order = add_new_order(self.id, items, delivery_type)
+            order = add_new_order(self.id, items, delivery_type, delivery_address)
             self.cart = {}  # Очищаем корзину после оформления заказа
             return order
         else:
