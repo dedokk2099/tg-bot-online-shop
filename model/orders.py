@@ -15,7 +15,7 @@ class DeliveryType(enum.Enum):
     DELIVERY = 'доставка'
 
 class Order:
-    def __init__(self, customer_id, items, delivery_type, delivery_address=None):
+    def __init__(self, customer_id, items, delivery_type, delivery_address):
         self.id = f"{customer_id}_{Order.generate_order_id(customer_id, orders_by_customer)}"
         self.status = OrderStatus.PROCESSING
         self.order_datetime = datetime.datetime.now()
@@ -41,7 +41,7 @@ class Order:
 # Используем словарь для хранения заказов, индексированный по customer_id
 orders_by_customer = {}
 
-def add_new_order(customer_id, items, delivery_type, delivery_address=None):
+def add_new_order(customer_id, items, delivery_type, delivery_address):
     new_order = Order(customer_id, items, delivery_type, delivery_address)
     if customer_id not in orders_by_customer:
         orders_by_customer[customer_id] = []
@@ -73,10 +73,10 @@ order_items4 = [
     {'product': products_as_class[2], 'quantity': 2}
     ]
 
-add_new_order('user123', order_items1, DeliveryType.PICKUP)
-add_new_order('user123', order_items2, DeliveryType.DELIVERY)
-add_new_order('user456', order_items3, DeliveryType.PICKUP)
-add_new_order('user456', order_items4, DeliveryType.DELIVERY)
+add_new_order('user123', order_items1, DeliveryType.PICKUP, "город Энск, на центральной площади")
+add_new_order('user123', order_items2, DeliveryType.DELIVERY, "улица Пушкина, дом Колотушкина")
+add_new_order('user456', order_items3, DeliveryType.PICKUP, "Мадагаскар, под пальмой")
+add_new_order('user456', order_items4, DeliveryType.DELIVERY, "Антарктида, станция Мирный")
 
 # for customer_id, orders in orders_by_customer.items():
 #     print(f"Заказы клиента {customer_id}:")

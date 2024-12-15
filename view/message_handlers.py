@@ -94,7 +94,12 @@ def handle_delivery_callback(call):
 def handle_payment_callback(call):
     role_switcher_.user_controller_.handle_payment_callback(call)
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith("pickup_point"))
+def handle_pickup_point_callback(call):
+    role_switcher_.user_controller_.handle_pickup_point_callback(call)
+
 @bot.callback_query_handler(func=lambda call: True)
 def handle_callback_query(call):
     role_switcher_.admin_controller_.handle_callback(call)
+
 

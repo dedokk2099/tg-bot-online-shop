@@ -107,9 +107,14 @@ def generate_delivery_type_keyboard():
         markup.add(types.InlineKeyboardButton("Доставка", callback_data=f"delivery:delivery"))
         return markup
 
-def generate_payment_type_keyboard(delivery_type, delivery_address=None):
-        print(f"generate_payment_type_keyboard: delivery_address: {delivery_address}, type of delivery_address: {type(delivery_address)}")
+def generate_payment_type_keyboard(delivery_type):
         markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton("Онлайн", callback_data=f"payment:online:{delivery_type.value}:{delivery_address}"))
-        markup.add(types.InlineKeyboardButton("При получении", callback_data=f"payment:on_delivery:{delivery_type.value}:{delivery_address}"))
+        markup.add(types.InlineKeyboardButton("Онлайн", callback_data=f"payment:online:{delivery_type.value}"))
+        markup.add(types.InlineKeyboardButton("При получении", callback_data=f"payment:on_delivery:{delivery_type.value}"))
+        return markup
+
+def generate_pickup_points_keyboard(pickup_points):
+        markup = types.InlineKeyboardMarkup()
+        for point in pickup_points:
+            markup.add(types.InlineKeyboardButton(point["name"], callback_data=f"pickup_point:{point['id']}"))
         return markup

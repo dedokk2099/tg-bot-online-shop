@@ -12,6 +12,7 @@ from html import escape #для экранирования html символов
 from model.orders import add_new_order, get_orders, OrderStatus, DeliveryType
 from model.products import products_as_class
 from model.user import User
+from model.pickup_points import pickup_points
 
 class UserController:
     def __init__(self, bot):
@@ -50,9 +51,14 @@ class UserController:
         try:
             new_text = "Корзина пуста"
             self.bot.edit_message_text(text=new_text, chat_id=chat_id, message_id=self.show_cart_message_id)
+            self.show_cart_message_id = None
         except telebot.apihelper.ApiTelegramException as e:
             print(f"Ошибка редактирования сообщения: {e}")
-        self.bot.delete_message(chat_id, self.show_cart_sum_message_id)
+        try:
+            self.bot.delete_message(chat_id, self.show_cart_sum_message_id)
+            self.show_cart_sum_message_id = None
+        except telebot.apihelper.ApiTelegramException as e:
+                print(f"Ошибка удаления сообщения: {e}")
 
     def update_cart_item_message(self, call, product_id, quantity):
         item = next((item for item in self.users[call.message.chat.id].get_cart_items() if item['product'].id == product_id), None)
@@ -138,7 +144,7 @@ class UserController:
         if self.user_states[message.chat.id].get('state') == 0:
             for product in self.products:
                 self.send_product_info(chat_id, product)
-        if self.show_cart_message_id:
+        if self.show_cart_message_id is not None:
             for message_id in self.cart_messages.values():
                 try:
                     self.bot.delete_message(chat_id, message_id)
@@ -213,8 +219,10 @@ class UserController:
 Состав заказа:
 {items_str}
 Итого: {order.total_sum} ₽"""
-        if order.delivery_address:
+        if order.delivery_type == DeliveryType.DELIVERY:
             text += f"\n\nАдрес доставки: {order.delivery_address}"
+        else:
+            text += f"\n\nАдрес пункта самовывоза: {order.delivery_address}"
         self.bot.send_message(chat_id, text, parse_mode='html', reply_markup=keyboards.generate_watch_products_keyboard(order))
 
 
@@ -246,14 +254,17 @@ class UserController:
     def handle_delivery_address(self, message):
         chat_id = message.chat.id
         delivery_address = message.text
-        self.show_payment_options(message, DeliveryType.DELIVERY, delivery_address)
+        self.user_states[chat_id] = self.user_states.get(chat_id, {})
+        self.user_states[chat_id]["delivery_address"] = delivery_address
+        print(f"handle_delivery_address called for chat_id: {chat_id}, address: {delivery_address}")
+        self.show_payment_options(message, DeliveryType.DELIVERY)
 
-    def show_payment_options(self, message, delivery_type, delivery_address=None):
+    def show_payment_options(self, message, delivery_type):
         chat_id = message.chat.id
-        msg = self.bot.send_message(chat_id, "Выберите способ оплаты:", reply_markup=keyboards.generate_payment_type_keyboard(delivery_type, delivery_address))
+        msg = self.bot.send_message(chat_id, "Выберите способ оплаты:", reply_markup=keyboards.generate_payment_type_keyboard(delivery_type))
         self.chat_messages[f"{chat_id}:payment_message_id"] = msg.message_id
 
-    def create_order(self, chat_id, delivery_type, delivery_address=None):
+    def create_order(self, chat_id, delivery_type, delivery_address):
         user = self.users.get(chat_id)
         new_order = user.create_order(delivery_type, delivery_address)
         self.bot.send_message(chat_id, f"Заказ №{new_order.id} оформлен!\nТип получения: {new_order.delivery_type.value}", reply_markup=keyboards.generate_user_keyboard())
@@ -364,7 +375,14 @@ class UserController:
         print(f"handle_delivery_callback called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
         data = callback_data.split(":")
         if data[1] == "pickup":
-            self.show_payment_options(call.message, DeliveryType.PICKUP)
+            message_text = "Выберите пункт выдачи:\n\n"
+            for point in pickup_points:
+                message_text += (
+                    f"<b>{point['name']}</b>\n"
+                    f"Адрес: {point['address']}\n"
+                    f"Время работы: {point['working_hours']}\n\n"
+                )
+            self.bot.send_message(chat_id, message_text, parse_mode='html', reply_markup=keyboards.generate_pickup_points_keyboard(pickup_points))
         elif data[1] == "delivery":
             self.bot.send_message(chat_id, "Введите адрес доставки:")
             self.bot.register_next_step_handler(call.message, self.handle_delivery_address)
@@ -378,14 +396,28 @@ class UserController:
         data = callback_data.split(":")
         delivery_type_str = data[2] 
         delivery_type = DeliveryType(delivery_type_str)
-        delivery_address = None if len(data) < 4 or data[3] == 'None' else data[3]
-        print(f"data[3]: {data[3]}, type of data[3]: {type(data[3])}")
-        print(f"delivery_address: {delivery_address}, type of delivery_address: {type(delivery_address)}")
+        delivery_address = state_data.get("delivery_address")
         if data[1] == "on_delivery":
             self.create_order(chat_id, delivery_type, delivery_address)
         elif data[1] == "online":
             # Здесь должен быть код имитации онлайн-оплаты
             self.bot.send_message(chat_id, "Заказ оплачен!")
             self.create_order(chat_id, delivery_type, delivery_address)
+
+    def handle_pickup_point_callback(self, call):
+        chat_id = call.message.chat.id
+        callback_data = call.data
+        state_data = self.user_states.get(chat_id, {})
+        print(f"Callback query received from USER: Chat ID: {chat_id} Callback Data: {callback_data}")
+        print(f"handle_pickup_point_callback called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
+        data = callback_data.split(":")
+        pickup_point_id = data[1]
+        pickup_point = next((point for point in pickup_points if point["id"] == pickup_point_id), None)
+        if not pickup_point:
+            self.bot.send_message(chat_id, "Ошибка выбора пункта выдачи")
+            return
+        print(f"выбран пункт выдачи:{pickup_point["name"]}")
+        self.user_states[chat_id]["delivery_address"] = pickup_point["address"]
+        self.show_payment_options(call.message, DeliveryType.PICKUP)
             
     
