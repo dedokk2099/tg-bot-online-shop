@@ -385,7 +385,7 @@ class AdminController:
             order_id = data[1]
             order = self.find_order_by_id(order_id)
             if order:
-                text = f"Вы хотите изменить статус заказа <b>{order_id}</b>\nТекущий статус: <b>{order.status.value}</b>\nВыберите новый статус:"
+                text = f"Вы хотите изменить статус заказа <b>{order_id}</b>\nТекущий статус: <b>{order.status}</b>\nВыберите новый статус:"
                 self.bot.send_message(chat_id, text, parse_mode='html', reply_markup=keyboards.generate_status_keyboard(order_id, order.status))
             else:
                 self.bot.answer_callback_query(call.id, f"Заказ с ID {order_id} не найден", show_alert=True)
@@ -403,9 +403,9 @@ class AdminController:
             items_str += f"{i+1}. <b>{product_name}</b>\n{product_price} ₽ x {quantity} = {total_item_price} ₽\n"
 
         text = f"""Номер заказа: <b>{order.id}</b>
-Статус: <b>{order.status.value}</b>
+Статус: <b>{order.status}</b>
 Дата и время: {order.order_datetime.strftime('%d.%m.%y %H:%M')}
-Способ получения: <b>{order.delivery_type.value}</b>\n
+Способ получения: <b>{order.delivery_type}</b>\n
 Состав заказа:
 {items_str}
 Итого: {order.total_sum} ₽"""
@@ -416,7 +416,7 @@ class AdminController:
 
     def show_new_orders(self, message):
         chat_id = message.chat.id
-        new_orders = get_orders(status=OrderStatus.PROCESSING)
+        new_orders = get_orders(status=OrderStatus.PROCESSING.value)
         if new_orders:
             for order in new_orders:
                 self.send_order_info(order, chat_id)
@@ -427,7 +427,7 @@ class AdminController:
         chat_id = message.chat.id
         self.all_orders = get_orders()
         in_progress_orders = [order for order in self.all_orders
-                                    if order.status not in (OrderStatus.PROCESSING, OrderStatus.RECEIVED)]
+                                    if order.status not in (OrderStatus.PROCESSING.value, OrderStatus.RECEIVED.value)]
         if in_progress_orders:
             for order in in_progress_orders:
                 self.send_order_info(order, chat_id)
@@ -436,7 +436,7 @@ class AdminController:
 
     def show_completed_orders(self, message):
         chat_id = message.chat.id
-        completed_orders = get_orders(status=OrderStatus.RECEIVED)
+        completed_orders = get_orders(status=OrderStatus.RECEIVED.value)
         if completed_orders:
             for order in completed_orders:
                 self.send_order_info(order, chat_id)
@@ -460,10 +460,10 @@ class AdminController:
             new_status = OrderStatus[new_status_name]
             order = self.find_order_by_id(order_id)
             if order:
-                order.status = new_status  # Обновление статуса заказа
+                order.status = new_status.value  # Обновление статуса заказа
 
                 # вызов функции изменения статуса заказа
-                database.changeStatus(order_id, new_status)
+                database.change_status(order_id, new_status.value)
 
                 self.bot.send_message(chat_id, f"Статус заказа {order_id} изменён на '{new_status.value}'")
                 message_id_to_delete = self.order_message_map.get(order_id)  # Извлекаем message_id из словаря по order_id

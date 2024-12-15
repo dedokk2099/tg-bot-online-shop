@@ -3,6 +3,7 @@ from view.keyboards import generate_admin_keyboard, generate_user_keyboard
 import controller.admin_controller as admin_controller
 import controller.user_controller as user_controller
 import view.user_interface as user_interface
+import model.orders as orders
 
 class RoleSwitcher:
     def __init__(self, bot):
@@ -10,6 +11,7 @@ class RoleSwitcher:
         self.admin_controller_ = admin_controller.AdminController(bot)
         self.user_controller_ = user_controller.UserController(bot)
         self.user = User()
+        orders.fill_orders_by_customer()
 
     def register_user(self, message):
         if self.user.is_new(message.chat.id):

@@ -1,14 +1,14 @@
-from sqlalchemy import create_engine, Column, Integer, String, JSON, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, JSON, ForeignKey, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 import os,sys
 import sqlite3
 
 # sys.path.insert(1, '/path/to/model')
-import model.products as products
-import model.orders as orders
+#import model.products as products
+#import model.orders as orders
 from model.products import Product
-from model.orders import Order
+#from orders import Order
 
 Base = declarative_base()
 engine = create_engine('sqlite:///model/shop.db')
@@ -90,7 +90,7 @@ class Orders(Base):
     number_order = Column(Integer, unique=True, nullable=False)
     status = Column(String, nullable=False)
     total_sum = Column(Integer, nullable=False)
-    datetime = Column(String, nullable=False)
+    datetime = Column(DateTime, nullable=False)
     delivery_type = Column(String, nullable=False)
     
     # связи
@@ -131,7 +131,7 @@ def updateItemAttribute(item_id, item_attribute, item_value):
 
 # функция добавления заказа
 def addOrder(user_id, order_id, order_status, order_sum, delivery_type, order_datetime):
-    order = Orders(users=user_id, number_order=order_id, status=order_status, total_sum=order_sum, datetime=order_datetime, delivery_type=delivery_type)
+    order = Orders(user_id=user_id, number_order=order_id, status=order_status, total_sum=order_sum, datetime=order_datetime, delivery_type=delivery_type)
     session.add(order)
     session.commit()
 
@@ -151,10 +151,40 @@ def get_basket():
     # print(basket_list)
 
 # функция вывода данных из класса Basket
+# def get_products_by_order_number(order_number):
+#     basket = session.query(Basket).filter(Basket.order_id == order_number).all()
+#     products = session.query(Shop).join(Basket).filter(Basket.order_id == order_number).all()
+#     products_list=[]
+#     for item in products:
+#         products_list.append({'id': item.product_id, "name": item.name, "price": item.price, "description": item.description, "stock_quantity": item.stock_quantity, 'image': item.image})
+    
+#     products_as_class = [Product(**data) for data in products_list]
+#     items = []
+#     i = 0
+#     for item in products_as_class:       
+#         items.append({'product': item, 'quantity':basket[i].quantity})
+#         i = i + 1
+
+#     return items
+
 def get_products_by_order_number(order_number):
-    products = session.query(Shop).join(Basket).filter(Basket.order_id == order_number).all()
-    products_as_class = [Product(**data) for data in products]
-    return products_as_class
+    items = []
+    basket_items = session.query(Basket).filter(Basket.order_id==order_number).all()
+    products = []
+    for basket_item in basket_items:
+        product = session.query(Shop).filter(Shop.product_id == basket_item.item_id).first()
+
+        if product:
+            items.append({
+              'id': product.product_id,
+              "name": product.name,
+              "price": basket_item.price,
+              "description": product.description,
+              "stock_quantity": product.stock_quantity,
+              'image': product.image
+           })
+        products.append({'product': Product(**items[-1]), 'quantity': basket_item.quantity})
+    return products
 
 # вывод данных из базы товаров в виде списка
 def get_products():
@@ -166,15 +196,15 @@ def get_products():
     return products_list
 
 # вывод данных из базы заказов в виде списка
-def get_orders():
-    orders_db = session.query(Orders).all()
-    orders_list = []
-    for order in orders_db:
-        items = get_products_by_order_number(order.number_order)
-        exist_order = Order(order.user_id, items, order.delivery_type, order.order_number)
-        orders_list.append(exist_order)
-    # print(orders_list)
-    return orders_list
+# def get_orders():
+#     orders_db = session.query(Orders).all()
+#     orders_list = []
+#     for order in orders_db:
+#         items = get_products_by_order_number(order.number_order)
+#         exist_order = Order(order.user_id, items, order.delivery_type, order.number_order)
+#         orders_list.append(exist_order)
+#     # print(orders_list)
+#     return orders_list
 
 # функция изменения статуса заказа
 def change_status(number_order, order_status):
@@ -232,6 +262,19 @@ def get_user_except_orders(user_id, order_status):
 # addItem(345, 'Молоко', 160, 'Птичье молоко', 7, '')
 # addItem(555, 'Телефон', 1000, 'Айфон на андроид', 1, '')
 
+# products = get_products()
+# products_as_class = [Product(**data) for data in products]
+
+# items = [
+#     {'product': products_as_class[0], 'quantity': 3},
+#     {'product': products_as_class[2], 'quantity': 1}
+#     ]
+
+# order = Order('2023435947', items, 'самовывоз')
+# addOrder(order.customer_id, order.id, order.status.value, order.total_sum, order.delivery_type, order.order_datetime)
+# addBasket(order.id, order.items[0]['product'].id, order.items[0]['quantity'], order.items[0]['product'].price)
+# addBasket(order.id, order.items[1]['product'].id, order.items[1]['quantity'], order.items[1]['product'].price)
+# addBasket(order.id, order.items[2]['product'].id, order.items[2]['quantity'], order.items[2]['product'].price)
 
 # order = session.query(Orders).filter_by(number_order=113424).first()
 # item = session.query(Shop).filter_by(product_id=555).first()
