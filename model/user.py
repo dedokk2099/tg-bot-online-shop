@@ -24,6 +24,9 @@ class User:
             if product:
                 items.append({'product': product, 'quantity': quantity}) # Добавляем товар в список для заказа
         return items
+    
+    def calculate_total_sum(self):
+        return sum(item['product'].price * item['quantity'] for item in self.get_cart_items())
 
     def create_order(self, delivery_type, delivery_address):
         items = self.get_cart_items()

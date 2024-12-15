@@ -20,63 +20,59 @@ class UserController:
         self.user_states = {}
         self.users = {}
         self.products = products_as_class
-        self.cart_messages = {}
-        self.catalog_messages = {}
-        self.show_catalog_message_id = None
-        self.show_cart_message_id = None
-        self.show_cart_sum_message_id = None
-        self.chat_messages = {}
 
 
     def delete_catalog_messages(self, chat_id):
-        for message_id in self.catalog_messages.values():
+        for product_id, message_id in self.user_states[chat_id]["catalog_message_ids"].items():
             try:
                 self.bot.delete_message(chat_id, message_id)
             except telebot.apihelper.ApiTelegramException as e:
                 print(f"Ошибка удаления сообщения: {e}")
-        self.catalog_messages = {} # Очищаем словарь после удаления
+        self.user_states[chat_id]["catalog_message_ids"] = {}
         try:
             new_text = "Внимание: каталог очищен, для перехода в него нажмите кнопку 'Товары'"
-            self.bot.edit_message_text(text=new_text, chat_id=chat_id, message_id=self.show_catalog_message_id)
+            self.bot.edit_message_text(text=new_text, chat_id=chat_id, message_id=self.user_states[chat_id]["show_catalog_message_id"])
         except telebot.apihelper.ApiTelegramException as e:
-            print(f"Ошибка редактирования сообщения: {e}")
+            print(f"Ошибка редактирования сообщения вывода каталога: {e}")
 
     def delete_cart_messages(self, chat_id):
-        for message_id in self.cart_messages.values():
-            try:
-                self.bot.delete_message(chat_id, message_id)
-            except telebot.apihelper.ApiTelegramException as e:
-                print(f"Ошибка удаления сообщения: {e}")
-        self.cart_messages = {}  # Очищаем словарь
+        if "cart_message_ids" in self.user_states[chat_id]:
+            for product_id, message_id in self.user_states[chat_id]["cart_message_ids"].items():
+                try:
+                    self.bot.delete_message(chat_id, message_id)
+                except telebot.apihelper.ApiTelegramException as e:
+                    print(f"Ошибка удаления сообщения товара корзины в delete_cart_messages: {e}")
+            self.user_states[chat_id]["cart_message_ids"] = {}
         try:
             new_text = "Корзина пуста"
-            self.bot.edit_message_text(text=new_text, chat_id=chat_id, message_id=self.show_cart_message_id)
-            self.show_cart_message_id = None
+            self.bot.edit_message_text(text=new_text, chat_id=chat_id, message_id=self.user_states[chat_id]["show_cart_message_id"])
+            self.user_states[chat_id]["show_cart_message_id"] = None
         except telebot.apihelper.ApiTelegramException as e:
-            print(f"Ошибка редактирования сообщения: {e}")
+            print(f"Ошибка редактирования сообщения вывода корзины в delete_cart_messages: {e}")
         try:
-            self.bot.delete_message(chat_id, self.show_cart_sum_message_id)
-            self.show_cart_sum_message_id = None
+            self.bot.delete_message(chat_id, self.user_states[chat_id]["show_cart_sum_message_id"])
+            self.user_states[chat_id]["show_cart_sum_message_id"] = None
         except telebot.apihelper.ApiTelegramException as e:
-                print(f"Ошибка удаления сообщения: {e}")
+                print(f"Ошибка удаления сообщения вывода суммы корзины в delete_cart_messages: {e}")
 
     def update_cart_item_message(self, call, product_id, quantity):
-        item = next((item for item in self.users[call.message.chat.id].get_cart_items() if item['product'].id == product_id), None)
+        chat_id=call.message.chat.id
+        item = next((item for item in self.users[chat_id].get_cart_items() if item['product'].id == product_id), None)
         if item:
             product = item['product']
             total_price = product.price * quantity
             text = f"<b>{product.name}</b>\n{product.price} ₽ x {quantity} = {total_price} ₽"
             try:
-                self.bot.edit_message_text(chat_id=call.message.chat.id, message_id=self.cart_messages[product_id], text=text, parse_mode="HTML", reply_markup=keyboards.generate_cart_item_keyboard(product_id, quantity))
+                self.bot.edit_message_text(chat_id=chat_id, message_id=self.user_states[chat_id]["cart_message_ids"][product_id], text=text, parse_mode="HTML", reply_markup=keyboards.generate_cart_item_keyboard(product_id, quantity))
             except telebot.apihelper.ApiTelegramException as e:
-                print(f"Ошибка редактирования сообщения: {e}")
+                print(f"Ошибка редактирования сообщения товара корзины: {e}")
     
     def update_cart_sum_message(self, chat_id):
         user = self.users.get(chat_id)
         if not user:
             return
-        total_sum = self.calculate_total_sum(user.get_cart_items())
-        message_id = self.show_cart_sum_message_id
+        total_sum = user.calculate_total_sum()
+        message_id = self.user_states[chat_id]["show_cart_sum_message_id"]
         if message_id:
             try:
                 self.bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=f"Итого: {total_sum} ₽", reply_markup=keyboards.generate_cart_keyboard())
@@ -119,8 +115,9 @@ class UserController:
             else:
                 msg = self.bot.send_message(chat_id, text, parse_mode="HTML", reply_markup=markup)
 
-            
-            self.catalog_messages[product.id] = msg.message_id
+            if "catalog_message_ids" not in self.user_states[chat_id]:
+                self.user_states[chat_id]["catalog_message_ids"] = {}
+            self.user_states[chat_id]["catalog_message_ids"][product.id] = msg.message_id
         except requests.exceptions.RequestException as e:
             self.bot.send_message(chat_id, f"Ошибка загрузки изображения для товара {product.name}: {e}")
             self.bot.send_message(chat_id, text, parse_mode="HTML", reply_markup=markup)
@@ -136,30 +133,34 @@ class UserController:
             self.bot.send_message(chat_id, "Каталог пуст")
             return
 
-        msg = self.bot.send_message(message.chat.id, "Список товаров в каталоге:")
-        self.show_catalog_message_id = msg.message_id
+        msg = self.bot.send_message(chat_id, "Список товаров в каталоге:")
 
-        # if message.chat.id not in self.user_states:
-        self.user_states[message.chat.id] = {"state": 0}  # Начальное состояние
-        if self.user_states[message.chat.id].get('state') == 0:
+        if chat_id not in self.user_states:
+            self.user_states[chat_id] = {"state": 0}
+        if self.user_states[chat_id].get("catalog_message_ids"):
+            print(f"catalog_message_ids обнаружены: {self.user_states[chat_id]["catalog_message_ids"]}\nудаляем!")
+            self.delete_catalog_messages(chat_id)
+        self.user_states[chat_id]["show_catalog_message_id"] = msg.message_id
+        if self.user_states[chat_id].get('state') == 0:
             for product in self.products:
                 self.send_product_info(chat_id, product)
-        if self.show_cart_message_id is not None:
-            for message_id in self.cart_messages.values():
+        if "cart_message_ids" in self.user_states[chat_id]:
+            for product_id, message_id in self.user_states[chat_id]["cart_message_ids"].items():
                 try:
                     self.bot.delete_message(chat_id, message_id)
                 except telebot.apihelper.ApiTelegramException as e:
                     print(f"Ошибка удаления сообщения: {e}")
-            self.cart_messages = {}  # Очищаем словарь
+            self.user_states[chat_id]["cart_message_ids"] = {}
             try:
-                self.bot.delete_message(chat_id, self.show_cart_sum_message_id)
+                self.bot.delete_message(chat_id, self.user_states[chat_id]["show_cart_sum_message_id"])
+                self.user_states[chat_id]["show_cart_sum_message_id"] = None
             except telebot.apihelper.ApiTelegramException as e:
                 print(f"Ошибка удаления сообщения: {e}")
             try:
                 new_text = "Внимание: сообщения корзины удалены, для перехода в неё нажмите кнопку 'Корзина'"
-                self.bot.edit_message_text(text=new_text, chat_id=chat_id, message_id=self.show_cart_message_id)
+                self.bot.edit_message_text(text=new_text, chat_id=chat_id, message_id=self.user_states[chat_id]["show_cart_message_id"])
             except telebot.apihelper.ApiTelegramException as e:
-                print(f"Ошибка редактирования сообщения: {e}")
+                print(f"Ошибка редактирования сообщения вывода корзины: {e}")
   
 
     def send_cart_item(self, chat_id, item):
@@ -168,11 +169,10 @@ class UserController:
         total_price = product.price * quantity
         text = f"<b>{product.name}</b>\n{product.price} ₽ x {quantity} = {total_price} ₽"
         msg = self.bot.send_message(chat_id, text, parse_mode="HTML", reply_markup=keyboards.generate_cart_item_keyboard(product.id, quantity))
-        self.cart_messages[item['product'].id] = msg.message_id
+        if "cart_message_ids" not in self.user_states[chat_id]:
+            self.user_states[chat_id]["cart_message_ids"] = {}
+        self.user_states[chat_id]["cart_message_ids"][product.id] = msg.message_id
         
-    def calculate_total_sum(self, cart_items):
-        return sum(item['product'].price * item['quantity'] for item in cart_items)
-
     def show_cart(self, message, call):
         chat_id = message.chat.id
         print(f"show_cart called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
@@ -185,16 +185,36 @@ class UserController:
             else:
                 self.bot.send_message(chat_id, "Корзина пуста")
                 return
-
+        if "cart_message_ids" in self.user_states[chat_id]:
+            for product_id, message_id in self.user_states[chat_id]["cart_message_ids"].items():
+                try:
+                    self.bot.delete_message(chat_id, message_id)
+                except telebot.apihelper.ApiTelegramException as e:
+                    print(f"Ошибка удаления сообщения: {e}")
+            self.user_states[chat_id]["cart_message_ids"] = {}
+            try:
+                self.bot.delete_message(chat_id, self.user_states[chat_id]["show_cart_message_id"])
+                self.bot.delete_message(chat_id, self.user_states[chat_id]["show_cart_sum_message_id"])
+                self.user_states[chat_id]["show_cart_message_id"] = None
+                self.user_states[chat_id]["show_cart_sum_message_id"] = None
+            except telebot.apihelper.ApiTelegramException as e:
+                print(f"Ошибка удаления сообщения: {e}")
+        if "chat_message_ids" in self.user_states[chat_id]:
+            for message_id in self.user_states[chat_id]["chat_message_ids"]:
+                try:
+                    self.bot.delete_message(chat_id, message_id)
+                except telebot.apihelper.ApiTelegramException as e:
+                    print(f"Ошибка удаления сообщения: {e}")
+            self.user_states[chat_id]["chat_message_ids"] = []  
         msg = self.bot.send_message(message.chat.id, "Список товаров в корзине:")
-        self.show_cart_message_id = msg.message_id
+        self.user_states[chat_id]["show_cart_message_id"] = msg.message_id
 
         for item in user.get_cart_items():
             self.send_cart_item(chat_id, item)
-        total_sum = self.calculate_total_sum(user.get_cart_items())
+        total_sum = user.calculate_total_sum()
         text = f"Итого: {total_sum} ₽"
         msg = self.bot.send_message(chat_id, text, reply_markup=keyboards.generate_cart_keyboard())
-        self.show_cart_sum_message_id = msg.message_id
+        self.user_states[chat_id]["show_cart_sum_message_id"] = msg.message_id
         self.delete_catalog_messages(chat_id)
         
 
@@ -247,9 +267,26 @@ class UserController:
             self.bot.send_message(chat_id, "У Вас пока нет полученных заказов")
     
 
+    def delete_buttons(self, chat_id):
+        if "cart_message_ids" in self.user_states[chat_id]:
+            for product_id, message_id in self.user_states[chat_id]["cart_message_ids"].items():
+                try:
+                    self.bot.edit_message_reply_markup(chat_id=chat_id, message_id=message_id, reply_markup=None)
+                    print(f"Кнопки под сообщением корзины с ID {message_id} были удалены.")
+                except telebot.apihelper.ApiTelegramException as e:
+                    print(f"Ошибка удаления кнопок у сообщения корзины: {message_id}: {e}")
+        if "show_cart_sum_message_id" in self.user_states[chat_id]:
+            try:
+                self.bot.edit_message_reply_markup(chat_id=chat_id, message_id=self.user_states[chat_id]["show_cart_sum_message_id"], reply_markup=None)
+                print(f"Кнопка под сообщением суммы корзины с ID {message_id} были удалены.")
+            except telebot.apihelper.ApiTelegramException as e:
+                print(f"Ошибка удаления кнопки у сообщения с суммой корзины: {message_id}: {e}")
+
     def show_delivery_options(self, chat_id):
+        self.delete_buttons(chat_id)
         msg = self.bot.send_message(chat_id, "Выберите способ получения заказа:", reply_markup=keyboards.generate_delivery_type_keyboard())
-        self.chat_messages[f"{chat_id}:delivery_message_id"] = msg.message_id
+        self.user_states[chat_id]["chat_message_ids"] = []
+        self.user_states[chat_id]["chat_message_ids"].append(msg.message_id)
 
     def handle_delivery_address(self, message):
         chat_id = message.chat.id
@@ -262,13 +299,21 @@ class UserController:
     def show_payment_options(self, message, delivery_type):
         chat_id = message.chat.id
         msg = self.bot.send_message(chat_id, "Выберите способ оплаты:", reply_markup=keyboards.generate_payment_type_keyboard(delivery_type))
-        self.chat_messages[f"{chat_id}:payment_message_id"] = msg.message_id
+        self.user_states[chat_id]["chat_message_ids"].append(msg.message_id)
 
     def create_order(self, chat_id, delivery_type, delivery_address):
         user = self.users.get(chat_id)
         new_order = user.create_order(delivery_type, delivery_address)
-        self.bot.send_message(chat_id, f"Заказ №{new_order.id} оформлен!\nТип получения: {new_order.delivery_type.value}", reply_markup=keyboards.generate_user_keyboard())
+        self.bot.send_message(chat_id, f"Заказ №{new_order.id} оформлен! Спасибо за покупку!\nПосмотреть подробности можно в разделе 'Открытые заказы'", reply_markup=keyboards.generate_user_keyboard())
         self.delete_cart_messages(chat_id)
+        chat_message_ids = self.user_states.get(chat_id, {}).get("chat_message_ids")
+        if chat_message_ids:
+            for message_id in chat_message_ids:
+                try:
+                    self.bot.delete_message(chat_id, message_id)
+                except telebot.apihelper.ApiTelegramException as e:
+                    print(f"Ошибка удаления сообщения: {e}")
+            self.user_states[chat_id]["chat_message_ids"] = []
 
   
     def handle_callback(self, call):
@@ -295,7 +340,7 @@ class UserController:
             try:
                 self.bot.edit_message_reply_markup(reply_markup=keyboards.generate_go_to_cart_keyboard(product_id, 1), chat_id=chat_id, message_id=message_id)
             except telebot.apihelper.ApiTelegramException as e:
-                print(f"Ошибка редактирования сообщения: {e}")
+                print(f"Ошибка редактирования сообщения товара в каталоге: {e}")
         elif data[1] == "decrease":
             print(f"handle_callback (decrease) called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
             product_id = data[2]
@@ -327,21 +372,25 @@ class UserController:
         print(f"handle_cart_callback called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
         data = callback_data.split(":")
         if data[1] == "decrease":
-            print(f"handle_cart_callback (decrease) called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
-            product_id = data[2]
-            user.decrease_from_cart(product_id)
-            number = user.cart[product_id]
-            if number > 0:
-                self.update_cart_item_message(call, product_id, number)
+            if sum(user.cart.values()) > 1:
+                print(f"handle_cart_callback (decrease) called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
+                product_id = data[2]
+                user.decrease_from_cart(product_id)
+                number = user.cart[product_id]
+                if number > 0:
+                    self.update_cart_item_message(call, product_id, number)
+                else:
+                    user.remove_from_cart(product_id)
+                    message_id = self.user_states[chat_id]["cart_message_ids"].pop(product_id, None)
+                    if message_id:
+                        try:
+                            self.bot.delete_message(call.message.chat.id, message_id)
+                        except telebot.apihelper.ApiTelegramException as e:
+                            print(f"Ошибка удаления сообщения: {e}")
+                self.update_cart_sum_message(chat_id)
             else:
-                user.remove_from_cart(product_id)
-                message_id = self.cart_messages.pop(product_id, None) # Удаляем message_id из словаря
-                if message_id:
-                    try:
-                        self.bot.delete_message(call.message.chat.id, message_id)
-                    except telebot.apihelper.ApiTelegramException as e:
-                        print(f"Ошибка удаления сообщения: {e}")
-            self.update_cart_sum_message(chat_id)
+                user.cart = {}
+                self.delete_cart_messages(chat_id)
         elif data[1] == "increase":
             print(f"handle_cart_callback (increase) called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
             product_id = data[2]
@@ -350,17 +399,22 @@ class UserController:
             self.update_cart_item_message(call, product_id, number)
             self.update_cart_sum_message(chat_id)
         elif data[1] == "remove":
-            print(f"handle_cart_callback (remove) called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
-            product_id = data[2]
-            user.remove_from_cart(product_id)
-            message_id = self.cart_messages.pop(product_id, None)
-            if message_id:
-                try:
-                    self.bot.delete_message(call.message.chat.id, message_id)
-                except telebot.apihelper.ApiTelegramException as e:
-                    print(f"Ошибка удаления сообщения: {e}")
-            self.update_cart_sum_message(chat_id)
+            if len(user.cart) > 1:
+                print(f"handle_cart_callback (remove) called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
+                product_id = data[2]
+                user.remove_from_cart(product_id)
+                message_id = self.user_states[chat_id]["cart_message_ids"].pop(product_id, None)
+                if message_id:
+                    try:
+                        self.bot.delete_message(call.message.chat.id, message_id)
+                    except telebot.apihelper.ApiTelegramException as e:
+                        print(f"Ошибка удаления сообщения: {e}")
+                self.update_cart_sum_message(chat_id)
+            else:
+                user.cart = {}
+                self.delete_cart_messages(chat_id)
         elif data[1] == "clear":
+            print(f"handle_cart_callback (clear) called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
             user.cart = {}
             self.delete_cart_messages(chat_id)
         elif data[1] == "add":
@@ -382,10 +436,11 @@ class UserController:
                     f"Адрес: {point['address']}\n"
                     f"Время работы: {point['working_hours']}\n\n"
                 )
-            self.bot.send_message(chat_id, message_text, parse_mode='html', reply_markup=keyboards.generate_pickup_points_keyboard(pickup_points))
+            msg = self.bot.send_message(chat_id, message_text, parse_mode='html', reply_markup=keyboards.generate_pickup_points_keyboard(pickup_points))
         elif data[1] == "delivery":
-            self.bot.send_message(chat_id, "Введите адрес доставки:")
+            msg = self.bot.send_message(chat_id, "Введите адрес доставки:")
             self.bot.register_next_step_handler(call.message, self.handle_delivery_address)
+        self.user_states[chat_id]["chat_message_ids"].append(msg.message_id)
 
     def handle_payment_callback(self, call):
         chat_id = call.message.chat.id
@@ -400,7 +455,9 @@ class UserController:
         if data[1] == "on_delivery":
             self.create_order(chat_id, delivery_type, delivery_address)
         elif data[1] == "online":
-            # Здесь должен быть код имитации онлайн-оплаты
+            user = self.users.get(chat_id)
+            total_sum = users.calculate_total_sum()
+            # Здесь должен быть код имитации онлайн-оплаты или переход к новой функции, которой передаётся total_sum и в результате которой должен выполниться код ниже:
             self.bot.send_message(chat_id, "Заказ оплачен!")
             self.create_order(chat_id, delivery_type, delivery_address)
 
