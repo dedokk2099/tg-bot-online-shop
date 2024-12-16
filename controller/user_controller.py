@@ -141,9 +141,9 @@ class UserController:
             print(f"catalog_message_ids обнаружены: {self.user_states[chat_id]["catalog_message_ids"]}\nудаляем!")
             self.delete_catalog_messages(chat_id)
         self.user_states[chat_id]["show_catalog_message_id"] = msg.message_id
-        if self.user_states[chat_id].get('state') == 0:
-            for product in self.products:
-                self.send_product_info(chat_id, product)
+        # if self.user_states[chat_id].get('state') == 0:
+        for product in self.products:
+            self.send_product_info(chat_id, product)
         if "cart_message_ids" in self.user_states[chat_id]:
             for product_id, message_id in self.user_states[chat_id]["cart_message_ids"].items():
                 try:
@@ -176,7 +176,6 @@ class UserController:
     def show_cart(self, message, call):
         chat_id = message.chat.id
         print(f"show_cart called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
-
         user = self.users.get(chat_id)
         if user is None or not user.cart:
             if call:

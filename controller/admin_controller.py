@@ -463,6 +463,10 @@ class AdminController:
             if order:
                 order.status = new_status  # Обновление статуса заказа
                 self.bot.send_message(chat_id, f"Статус заказа {order_id} изменён на '{new_status.value}'")
+                user_id = order.customer_id
+                if user_id:
+                    # Отправляем уведомление пользователю
+                    self.bot.send_message(user_id, f"Статус Вашего заказа {order_id} изменён на '{new_status.value}'")
                 message_id_to_delete = self.order_message_map.get(order_id)  # Извлекаем message_id из словаря по order_id
                 if message_id_to_delete:
                     self.bot.delete_message(chat_id, message_id_to_delete)
