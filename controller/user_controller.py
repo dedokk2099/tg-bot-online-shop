@@ -456,7 +456,7 @@ class UserController:
             self.create_order(chat_id, delivery_type, delivery_address)
         elif data[1] == "online":
             user = self.users.get(chat_id)
-            total_sum = users.calculate_total_sum()
+            total_sum = user.calculate_total_sum()
             # Здесь должен быть код имитации онлайн-оплаты или переход к новой функции, которой передаётся total_sum и в результате которой должен выполниться код ниже:
             self.bot.send_message(chat_id, "Заказ оплачен!")
             self.create_order(chat_id, delivery_type, delivery_address)
