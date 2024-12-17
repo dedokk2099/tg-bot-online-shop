@@ -10,7 +10,7 @@ import uuid
 from html import escape #для экранирования html символов
 
 from model.orders import add_new_order, get_orders, OrderStatus, DeliveryType
-from model.products import products_as_class
+from model.products import get_products
 from model.user import User
 from model.pickup_points import pickup_points
 
@@ -19,7 +19,7 @@ class UserController:
         self.bot = bot
         self.user_states = {}
         self.users = {}
-        self.products = products_as_class
+        self.products = get_products()
 
 
     def delete_catalog_messages(self, chat_id):

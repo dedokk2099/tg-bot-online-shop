@@ -32,9 +32,15 @@ def generate_add_or_update_keyboard():
 def generate_product_keyboard(product):
         markup = types.InlineKeyboardMarkup()
         markup.add(
-            types.InlineKeyboardButton(text="Редактировать", callback_data=f"edit:{product['id']}"),
-            types.InlineKeyboardButton(text="Удалить", callback_data=f"delete:{product['id']}"),
+            types.InlineKeyboardButton(text="Редактировать", callback_data=f"edit:{product.id}"),
+            types.InlineKeyboardButton(text="Удалить", callback_data=f"delete:{product.id}"),
         )
+        return markup
+
+def generate_delete_keyboard(product_id):
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("Да", callback_data=f"confirm_delete:{product_id}"),
+                types.InlineKeyboardButton("Нет", callback_data="cancel_delete"))
         return markup
 
 def generate_change_status_keyboard(order):

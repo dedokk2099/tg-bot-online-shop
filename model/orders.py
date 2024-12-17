@@ -1,6 +1,6 @@
 import datetime
 import enum
-from model.products import products_as_class
+from model.products import products
 
 
 class OrderStatus(enum.Enum):
@@ -63,24 +63,18 @@ def get_orders(customer_id=None, status=None):
 
 #Пример использования
 order_items1 = [
-    {'product': products_as_class[0], 'quantity': 3}, 
-    {'product': products_as_class[1], 'quantity': 2}
+    {'product': products[0], 'quantity': 3}, 
+    {'product': products[1], 'quantity': 2}
     ]
-order_items2 = [{'product': products_as_class[0], 'quantity': 1}]
-order_items3 = [{'product': products_as_class[2], 'quantity': 2}]
+order_items2 = [{'product': products[0], 'quantity': 1}]
+order_items3 = [{'product': products[2], 'quantity': 2}]
 order_items4 = [
-    {'product': products_as_class[1], 'quantity': 3}, 
-    {'product': products_as_class[2], 'quantity': 2}
+    {'product': products[1], 'quantity': 3}, 
+    {'product': products[2], 'quantity': 2}
     ]
 
 add_new_order('user123', order_items1, DeliveryType.PICKUP, "город Энск, на центральной площади")
 add_new_order('user123', order_items2, DeliveryType.DELIVERY, "улица Пушкина, дом Колотушкина")
 add_new_order('user456', order_items3, DeliveryType.PICKUP, "Мадагаскар, под пальмой")
 add_new_order('user456', order_items4, DeliveryType.DELIVERY, "Антарктида, станция Мирный")
-
-# for customer_id, orders in orders_by_customer.items():
-#     print(f"Заказы клиента {customer_id}:")
-#     for order in orders:
-#         print(f"  - ID: {order.id}, Статус: {order.status.value}, Сумма: {order.total_sum}")
-#     print()
 

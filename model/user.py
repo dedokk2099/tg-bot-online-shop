@@ -1,5 +1,5 @@
 from model.orders import add_new_order
-from model.products import products_as_class
+from model.products import products
 
 class User:
     def __init__(self, user_id):
@@ -20,7 +20,7 @@ class User:
     def get_cart_items(self):
         items = []
         for product_id, quantity in self.cart.items():
-            product = next((p for p in products_as_class if p.id == product_id), None) # Находим продукт по ID
+            product = next((p for p in products if p.id == product_id), None) # Находим продукт по ID
             if product:
                 items.append({'product': product, 'quantity': quantity}) # Добавляем товар в список для заказа
         return items
