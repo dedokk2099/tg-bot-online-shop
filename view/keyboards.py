@@ -104,7 +104,7 @@ def generate_cart_keyboard():
 
 def generate_watch_products_keyboard(order):
         markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton("Посмотреть товары", callback_data=f"user:watch:{order.id}"))
+        markup.add(types.InlineKeyboardButton("Посмотреть товары", callback_data=f"watch:{order.id}"))
         return markup
 
 def generate_delivery_type_keyboard():

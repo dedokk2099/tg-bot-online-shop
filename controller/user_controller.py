@@ -220,6 +220,13 @@ class UserController:
     def get_open_orders(self, chat_id):
         return [order for order in get_orders(customer_id=chat_id) if order.status != OrderStatus.RECEIVED]
 
+    def get_order_by_id(self, chat_id, order_id):
+        orders = get_orders(customer_id=chat_id)
+        for order in orders:
+            if order.id == order_id:
+                return order  # Возвращаем заказ
+        return None
+
     def get_received_orders(self, chat_id):
         return [order for order in get_orders(customer_id=chat_id) if order.status == OrderStatus.RECEIVED]
 
@@ -475,5 +482,31 @@ class UserController:
         print(f"выбран пункт выдачи:{pickup_point["name"]}")
         self.user_states[chat_id]["delivery_address"] = pickup_point["address"]
         self.show_payment_options(call.message, DeliveryType.PICKUP)
-            
+
+    def handle_watch_products_callback(self, call):
+        chat_id = call.message.chat.id
+        callback_data = call.data
+        state_data = self.user_states.get(chat_id, {})
+        print(f"Callback query received from USER: Chat ID: {chat_id} Callback Data: {callback_data}")
+        print(f"handle_watch_products_callback called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
+        data = callback_data.split(":")
+        order_id = data[1]
+        chat_id = call.message.chat.id
+        order = self.get_order_by_id(chat_id, order_id)
+        print(f"Тип order: {type(order)}")
+        if order:
+            print(f"Тип order.items: {type(order.items)}")
+            for item in order.items:
+                product = item['product']
+                if product in self.products:
+                    self.send_product_info(chat_id, product)
+                else:
+                    self.bot.send_message(chat_id, f"Товар {product.name} снят с продажи!")
+
+        else:
+            print(f"Ошибка: Заказ с id {order_id} не найден для пользователя {chat_id}")
+ 
+
+
+
     
