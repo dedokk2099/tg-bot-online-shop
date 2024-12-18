@@ -2,9 +2,15 @@ class Product:
     def __init__(self, id, name, price, description, stock_quantity, image):
         self.id = id
         self.name = name
-        self.price = price
+        try:
+            self.price = int(price)
+        except ValueError:
+            self.price = 0
         self.description = description
-        self.stock_quantity = stock_quantity
+        try:
+            self.stock_quantity = int(stock_quantity)
+        except ValueError:
+            self.stock_quantity = 0
         self.image = image
 
     def __repr__(self):
