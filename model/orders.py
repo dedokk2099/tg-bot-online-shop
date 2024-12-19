@@ -1,6 +1,7 @@
 import datetime
 import enum
 from model.products import products
+from model.items import Item, all_items
 
 
 class OrderStatus(enum.Enum):
@@ -15,24 +16,24 @@ class DeliveryType(enum.Enum):
     DELIVERY = 'доставка'
 
 class Order:
-    def __init__(self, customer_id, items, delivery_type, delivery_address):
+    def __init__(self, customer_id, delivery_type, delivery_address):
         self.id = f"{customer_id}_{Order.generate_order_id(customer_id, orders_by_customer)}"
         self.status = OrderStatus.PROCESSING
         self.order_datetime = datetime.datetime.now()
         self.delivery_type = delivery_type
         self.delivery_address = delivery_address
-        self.items = items
+        # self.items = items
         self.total_sum = self.calculate_total()
         self.customer_id = customer_id
 
     @staticmethod
     def generate_order_id(customer_id, orders_by_customer):
-        return len(orders_by_customer.get(customer_id, [])) + 1
 
     def calculate_total(self):
         total = 0
-        for item in self.items:
-            total += item['quantity'] * item['product'].price
+        for item in all_items:
+            if item.order_id == self.id:
+                total += item.price * item.quantity
         return total
 
     def __repr__(self):
@@ -42,7 +43,15 @@ class Order:
 orders_by_customer = {}
 
 def add_new_order(customer_id, items, delivery_type, delivery_address):
-    new_order = Order(customer_id, items, delivery_type, delivery_address)
+    new_order = Order(customer_id, delivery_type, delivery_address)
+    item_objects = []
+    for item_data in items:
+        product = item_data['product']
+        quantity = item_data['quantity']
+        item = Item(new_order.id, product.id, product.name, product.price, quantity) # Передаём order_id в Item
+        item_objects.append(item)
+        all_items.append(item)
+    new_order.total_sum = new_order.calculate_total()
     if customer_id not in orders_by_customer:
         orders_by_customer[customer_id] = []
     orders_by_customer[customer_id].append(new_order)
@@ -60,6 +69,10 @@ def get_orders(customer_id=None, status=None):
         orders.append(order)
     orders.sort(key=lambda order: order.order_datetime, reverse=True)
     return orders
+
+def get_order_items(order_id):
+    order_items = [item for item in all_items if item.order_id == order_id]
+    return order_items
 
 #Пример использования
 order_items1 = [

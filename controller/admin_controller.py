@@ -9,7 +9,7 @@ import os
 import uuid
 from html import escape #для экранирования html символов
 
-from model.orders import get_orders, OrderStatus
+from model.orders import get_orders, get_order_items, OrderStatus, DeliveryType
 from model.products import Product, get_products
 
 PHOTO_FOLDER = 'model/product_photos'
@@ -373,25 +373,28 @@ class AdminController:
     # Функции для работы с заказами
 
     def send_order_info(self, order, chat_id):
-        items_str = ""
-        for i, item in enumerate(order.items):
-            product_name = escape(item['product'].name) # экранируем от html атак
-            product_price = item['product'].price
-            quantity = item['quantity']
-            total_item_price = product_price * quantity
-            items_str += f"{i+1}. <b>{product_name}</b>\n{product_price} ₽ x {quantity} = {total_item_price} ₽\n"
-
-        text = f"""Номер заказа: <b>{order.id}</b>
+        order_items = get_order_items(order.id)
+        if order_items:
+            items_str = ""
+            for i, item in enumerate(order_items):
+                product_name = escape(item.name) # экранируем от html атак
+                product_price = item.price
+                quantity = item.quantity
+                total_item_price = product_price * quantity
+                items_str += f"{i+1}. <b>{product_name}</b>\n{product_price} ₽ x {quantity} = {total_item_price} ₽\n"
+            text = f"""Номер заказа: <b>{order.id}</b>
 Статус: <b>{order.status.value}</b>
 Дата и время: {order.order_datetime.strftime('%d.%m.%y %H:%M')}
 Способ получения: <b>{order.delivery_type.value}</b>\n
 Состав заказа:
 {items_str}
 Итого: {order.total_sum} ₽"""
-        if order.delivery_address:
-            text += f"\n\nАдрес доставки: {order.delivery_address}"
-        msg = self.bot.send_message(chat_id, text, parse_mode='html', reply_markup=keyboards.generate_change_status_keyboard(order))
-        self.order_message_map[order.id] = msg.message_id
+            if order.delivery_type == DeliveryType.DELIVERY:
+                text += f"\n\nАдрес доставки: {order.delivery_address}"
+            else:
+                text += f"\n\nАдрес пункта самовывоза: {order.delivery_address}"
+            msg = self.bot.send_message(chat_id, text, parse_mode='html', reply_markup=keyboards.generate_change_status_keyboard(order))
+            self.order_message_map[order.id] = msg.message_id
 
 
     def show_new_orders(self, message):

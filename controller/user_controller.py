@@ -9,7 +9,7 @@ import os
 import uuid
 from html import escape #для экранирования html символов
 
-from model.orders import add_new_order, get_orders, OrderStatus, DeliveryType
+from model.orders import add_new_order, get_orders, get_order_items, OrderStatus, DeliveryType
 from model.products import get_products
 from model.user import User
 from model.pickup_points import pickup_points
@@ -231,14 +231,16 @@ class UserController:
         return [order for order in get_orders(customer_id=chat_id) if order.status == OrderStatus.RECEIVED]
 
     def send_order_info(self, order, chat_id):
-        items_str = ""
-        for i, item in enumerate(order.items):
-            product_name = escape(item['product'].name) # экранируем от html атак
-            product_price = item['product'].price
-            quantity = item['quantity']
-            total_item_price = product_price * quantity
-            items_str += f"{i+1}. <b>{product_name}</b>\n{product_price} ₽ x {quantity} = {total_item_price} ₽\n"
-            text = f"""Номер заказа: <b>{order.id}</b>
+        order_items = get_order_items(order.id)
+        if order_items:
+            items_str = ""
+            for i, item in enumerate(order_items):
+                product_name = escape(item.name) # экранируем от html атак
+                product_price = item.price
+                quantity = item.quantity
+                total_item_price = product_price * quantity
+                items_str += f"{i+1}. <b>{product_name}</b>\n{product_price} ₽ x {quantity} = {total_item_price} ₽\n"
+        text = f"""Номер заказа: <b>{order.id}</b>
 Статус: <b>{order.status.value}</b>
 Дата и время: {order.order_datetime.strftime('%d.%m.%y %H:%M')}
 Способ получения: <b>{order.delivery_type.value}</b>\n
@@ -493,16 +495,15 @@ class UserController:
         order_id = data[1]
         chat_id = call.message.chat.id
         order = self.get_order_by_id(chat_id, order_id)
-        print(f"Тип order: {type(order)}")
         if order:
-            print(f"Тип order.items: {type(order.items)}")
-            for item in order.items:
-                product = item['product']
-                if product in self.products:
-                    self.send_product_info(chat_id, product)
-                else:
-                    self.bot.send_message(chat_id, f"Товар {product.name} снят с продажи!")
-
+            items = get_order_items(order_id) # Получаем товары по ID заказа
+            if items:
+                for item in items:
+                    product = next((p for p in self.products if p.id == item.product_id), None)
+                    if product:
+                        self.send_product_info(chat_id, product)
+                    else:
+                        self.bot.send_message(chat_id, f"Товар {item.name} снят с продажи!")
         else:
             print(f"Ошибка: Заказ с id {order_id} не найден для пользователя {chat_id}")
  
