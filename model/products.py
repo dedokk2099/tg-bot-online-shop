@@ -12,6 +12,7 @@ class Product:
         except ValueError:
             self.stock_quantity = 0
         self.image = image
+        self.is_active = True
 
     def __repr__(self):
         return f"Product(id={self.id}, name={self.name}, price={self.price})"

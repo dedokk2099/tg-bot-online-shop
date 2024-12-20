@@ -22,12 +22,12 @@ class Order:
         self.order_datetime = datetime.datetime.now()
         self.delivery_type = delivery_type
         self.delivery_address = delivery_address
-        # self.items = items
         self.total_sum = self.calculate_total()
         self.customer_id = customer_id
 
     @staticmethod
     def generate_order_id(customer_id, orders_by_customer):
+        return len(orders_by_customer.get(customer_id, [])) + 1
 
     def calculate_total(self):
         total = 0

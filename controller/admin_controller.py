@@ -39,20 +39,31 @@ class AdminController:
         chat_id = message.chat.id
         print(f"show_catalog called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
 
-        if not self.products:
+        active_products = [product for product in self.products if product.is_active]
+        if not active_products:
             self.bot.send_message(chat_id, "Каталог пуст")
             self.bot.send_message(message.chat.id, "Добавить новый товар?", reply_markup=keyboards.generate_add_keyboard())
             return
 
+        # if not self.products:
+        #     self.bot.send_message(chat_id, "Каталог пуст")
+        #     self.bot.send_message(message.chat.id, "Добавить новый товар?", reply_markup=keyboards.generate_add_keyboard())
+        #     return
+
         # if message.chat.id not in self.user_states:
         self.user_states[message.chat.id] = {"state": 0}  # Начальное состояние
         if self.user_states[message.chat.id].get('state') == 0:
-            for product in self.products:
+            for product in active_products:
                 self.send_product_info(chat_id, product)
             self.bot.send_message(message.chat.id, "Добавить новый товар?", reply_markup=keyboards.generate_add_keyboard())
             return
         
     def send_product_info(self, chat_id, product):
+        if not product.is_active:
+            #написать клавиатуру и функцию для возврата в активное состояние
+            self.bot.send_message(chat_id, f"Название: {product.name}\nОписание: {product.description}\nПоследняя цена: {product.price} ₽\n\nТовар снят с продажи")
+            return
+
         text = f"<b>{product.name}</b>\nСтоимость: {product.price} ₽\nОписание: {product.description}\nКоличество на складе: {product.stock_quantity}"
         try:
             if product.image:
@@ -334,7 +345,8 @@ class AdminController:
                 self.bot.answer_callback_query(call.id, text="Товар не найден!")
                 return
             product_name = product_to_delete.name
-            self.products.remove(product_to_delete)
+            product_to_delete.is_active = False
+            # self.products.remove(product_to_delete)
             self.bot.edit_message_text(f"Товар {product_name} удален!", chat_id, self.confirmation_message_id) #Редактируем сообщение с подтверждением
             self.bot.answer_callback_query(call.id, text="Товар удален!")
             try:

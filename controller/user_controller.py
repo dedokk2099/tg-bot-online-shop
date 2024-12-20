@@ -83,6 +83,9 @@ class UserController:
 
 
     def send_product_info(self, chat_id, product):
+        if not product.is_active:
+            self.bot.send_message(chat_id, f"Название: {product.name}\nОписание: {product.description}\nПоследняя цена: {product.price} ₽\n\nТовар снят с продажи")
+            return
         user = self.users.get(chat_id)
         markup = keyboards.generate_add_to_cart_keyboard(product.id)
         if user:
@@ -129,9 +132,14 @@ class UserController:
         chat_id = message.chat.id
         print(f"show_catalog called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
 
-        if not self.products:
+        active_products = [product for product in self.products if product.is_active]
+        if not active_products:
             self.bot.send_message(chat_id, "Каталог пуст")
             return
+
+        # if not self.products:
+        #     self.bot.send_message(chat_id, "Каталог пуст")
+        #     return
 
         msg = self.bot.send_message(chat_id, "Список товаров в каталоге:")
 
@@ -142,7 +150,7 @@ class UserController:
             self.delete_catalog_messages(chat_id)
         self.user_states[chat_id]["show_catalog_message_id"] = msg.message_id
         # if self.user_states[chat_id].get('state') == 0:
-        for product in self.products:
+        for product in active_products:
             self.send_product_info(chat_id, product)
         if "cart_message_ids" in self.user_states[chat_id]:
             for product_id, message_id in self.user_states[chat_id]["cart_message_ids"].items():
@@ -503,7 +511,7 @@ class UserController:
                     if product:
                         self.send_product_info(chat_id, product)
                     else:
-                        self.bot.send_message(chat_id, f"Товар {item.name} снят с продажи!")
+                        self.bot.send_message(chat_id, f"Товар {item.name} не найден в базе!")
         else:
             print(f"Ошибка: Заказ с id {order_id} не найден для пользователя {chat_id}")
  
