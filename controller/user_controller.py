@@ -23,12 +23,13 @@ class UserController:
 
 
     def delete_catalog_messages(self, chat_id):
-        for product_id, message_id in self.user_states[chat_id]["catalog_message_ids"].items():
-            try:
-                self.bot.delete_message(chat_id, message_id)
-            except telebot.apihelper.ApiTelegramException as e:
-                print(f"Ошибка удаления сообщения: {e}")
-        self.user_states[chat_id]["catalog_message_ids"] = {}
+        if "catalog_message_ids" in self.user_states[chat_id]:
+            for product_id, message_id in self.user_states[chat_id]["catalog_message_ids"].items():
+                try:
+                    self.bot.delete_message(chat_id, message_id)
+                except telebot.apihelper.ApiTelegramException as e:
+                    print(f"Ошибка удаления сообщения товара каталога: {e}")
+            self.user_states[chat_id]["catalog_message_ids"] = {}
         try:
             new_text = "Внимание: каталог очищен, для перехода в него нажмите кнопку 'Товары'"
             self.bot.edit_message_text(text=new_text, chat_id=chat_id, message_id=self.user_states[chat_id]["show_catalog_message_id"])
@@ -54,6 +55,33 @@ class UserController:
             self.user_states[chat_id]["show_cart_sum_message_id"] = None
         except telebot.apihelper.ApiTelegramException as e:
                 print(f"Ошибка удаления сообщения вывода суммы корзины в delete_cart_messages: {e}")
+
+
+    def delete_cart_messages_and_update_show_cart(self, chat_id):
+        if "cart_message_ids" in self.user_states[chat_id]:
+            for product_id, message_id in self.user_states[chat_id]["cart_message_ids"].items():
+                try:
+                    self.bot.delete_message(chat_id, message_id)
+                except telebot.apihelper.ApiTelegramException as e:
+                    print(f"Ошибка удаления сообщения: {e}")
+            self.user_states[chat_id]["cart_message_ids"] = {}
+            try:
+                self.bot.delete_message(chat_id, self.user_states[chat_id]["show_cart_sum_message_id"])
+                self.user_states[chat_id]["show_cart_sum_message_id"] = None
+            except telebot.apihelper.ApiTelegramException as e:
+                print(f"Ошибка удаления сообщения: {e}")
+            try:
+                new_text = "Внимание: сообщения корзины удалены, для перехода в неё нажмите кнопку 'Корзина'"
+                self.bot.edit_message_text(text=new_text, chat_id=chat_id, message_id=self.user_states[chat_id]["show_cart_message_id"])
+            except telebot.apihelper.ApiTelegramException as e:
+                print(f"Ошибка редактирования сообщения вывода корзины: {e}")
+        if "chat_message_ids" in self.user_states[chat_id]:
+            for message_id in self.user_states[chat_id]["chat_message_ids"]:
+                try:
+                    self.bot.delete_message(chat_id, message_id)
+                except telebot.apihelper.ApiTelegramException as e:
+                    print(f"Ошибка удаления сообщения: {e}")
+            self.user_states[chat_id]["chat_message_ids"] = []  
 
     def update_cart_item_message(self, call, product_id, quantity):
         chat_id=call.message.chat.id
@@ -131,18 +159,11 @@ class UserController:
     def show_catalog(self, message):
         chat_id = message.chat.id
         print(f"show_catalog called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
-
         active_products = [product for product in self.products if product.is_active]
         if not active_products:
             self.bot.send_message(chat_id, "Каталог пуст")
             return
-
-        # if not self.products:
-        #     self.bot.send_message(chat_id, "Каталог пуст")
-        #     return
-
         msg = self.bot.send_message(chat_id, "Список товаров в каталоге:")
-
         if chat_id not in self.user_states:
             self.user_states[chat_id] = {"state": 0}
         if self.user_states[chat_id].get("catalog_message_ids"):
@@ -152,25 +173,8 @@ class UserController:
         # if self.user_states[chat_id].get('state') == 0:
         for product in active_products:
             self.send_product_info(chat_id, product)
-        if "cart_message_ids" in self.user_states[chat_id]:
-            for product_id, message_id in self.user_states[chat_id]["cart_message_ids"].items():
-                try:
-                    self.bot.delete_message(chat_id, message_id)
-                except telebot.apihelper.ApiTelegramException as e:
-                    print(f"Ошибка удаления сообщения: {e}")
-            self.user_states[chat_id]["cart_message_ids"] = {}
-            try:
-                self.bot.delete_message(chat_id, self.user_states[chat_id]["show_cart_sum_message_id"])
-                self.user_states[chat_id]["show_cart_sum_message_id"] = None
-            except telebot.apihelper.ApiTelegramException as e:
-                print(f"Ошибка удаления сообщения: {e}")
-            try:
-                new_text = "Внимание: сообщения корзины удалены, для перехода в неё нажмите кнопку 'Корзина'"
-                self.bot.edit_message_text(text=new_text, chat_id=chat_id, message_id=self.user_states[chat_id]["show_cart_message_id"])
-            except telebot.apihelper.ApiTelegramException as e:
-                print(f"Ошибка редактирования сообщения вывода корзины: {e}")
+        self.delete_cart_messages_and_update_show_cart(chat_id)
   
-
     def send_cart_item(self, chat_id, item):
         product = item['product']
         quantity = item['quantity']
@@ -506,6 +510,8 @@ class UserController:
         if order:
             items = get_order_items(order_id) # Получаем товары по ID заказа
             if items:
+                self.delete_catalog_messages(chat_id)
+                self.delete_cart_messages_and_update_show_cart(chat_id)
                 for item in items:
                     product = next((p for p in self.products if p.id == item.product_id), None)
                     if product:

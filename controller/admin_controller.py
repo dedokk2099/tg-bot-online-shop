@@ -10,7 +10,7 @@ import uuid
 from html import escape #для экранирования html символов
 
 from model.orders import get_orders, get_order_items, OrderStatus, DeliveryType
-from model.products import Product, get_products
+from model.products import Product, get_products, add_new_product
 
 PHOTO_FOLDER = 'model/product_photos'
 # Создаем папку для хранения фото, если ее нет
@@ -28,12 +28,6 @@ class AdminController:
         self.confirmation_message_id = None
 
 # Функции для работы с каталогом
-
-    def generate_unique_id(self):
-        while True:  # Гарантируем уникальность (хотя коллизия крайне маловероятна)
-            new_id = str(uuid.uuid4())
-            if new_id not in [product.id for product in self.products]:
-                return new_id
 
     def show_catalog(self, message):
         chat_id = message.chat.id
@@ -159,8 +153,10 @@ class AdminController:
             if product_id is not None and attribute_ru is not None:
                 try:
                     if attribute_ru in ['Цена', 'Количество']:
-                        float(message.text)
-                    self.update_attribute_value(message, product_id, attribute_ru, message.text)
+                        new_value = int(message.text)
+                    else:
+                        new_value = message.text
+                    self.update_attribute_value(message, product_id, attribute_ru, new_value)
                 except ValueError:
                             self.bot.send_message(chat_id, "Некорректный формат. Пожалуйста, введите число")
                             self.bot.register_next_step_handler(message, self.handle_attribute_value) # Рекурсивный вызов
@@ -245,12 +241,12 @@ class AdminController:
             self.bot.register_next_step_handler(message, self.handle_add_product) # Рекурсивный вызов для следующего шага
         elif 'price' not in self.user_states[chat_id]:
             try:
-                price = float(message.text)  # Проверка на число
+                price = int(message.text)  # Проверка на число
                 self.user_states[chat_id]['price'] = message.text
                 self.bot.send_message(chat_id, "Введите описание:")
                 self.bot.register_next_step_handler(message, self.handle_add_product) # Рекурсивный вызов
             except ValueError:
-                self.bot.send_message(chat_id, "Некорректный формат цены. Пожалуйста, введите число.")
+                self.bot.send_message(chat_id, "Некорректный формат цены. Пожалуйста, введите целое число.")
                 self.bot.register_next_step_handler(message, self.handle_add_product) # Рекурсивный вызов
         elif 'description' not in self.user_states[chat_id]:
                 self.user_states[chat_id]['description'] = message.text
@@ -258,14 +254,14 @@ class AdminController:
                 self.bot.register_next_step_handler(message, self.handle_add_product)
         elif 'stock_quantity' not in self.user_states[chat_id]:
             try:
-                stock_quantity = float(message.text)  # Проверка на число
+                stock_quantity = int(message.text)  # Проверка на число
                 self.user_states[chat_id]['stock_quantity'] = message.text
                 self.bot.send_message(chat_id, "Теперь отправьте фото товара")
                 print(f"фото отправится сейчас for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
                 self.user_states[chat_id]['state'] = 3  # Переходим к шагу загрузки изображения
                 print(f"состояние изменено for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
             except ValueError:
-                self.bot.send_message(chat_id, "Некорректный формат количества. Пожалуйста, введите число.")
+                self.bot.send_message(chat_id, "Некорректный формат количества. Пожалуйста, введите целое число.")
                 self.bot.register_next_step_handler(message, self.handle_add_product)  # Рекурсивный вызов
 
     def handle_photo_upload(self, message):
@@ -290,11 +286,9 @@ class AdminController:
             self.bot.send_message(chat_id, f"Ошибка при загрузке фото: {e}")
         try:
             # Добавляем фото к новому товару
-            new_product_id = self.generate_unique_id()
-            new_product = Product(new_product_id, user_state['name'], user_state['price'], user_state['description'], user_state['stock_quantity'], photo_path)
-            self.products.append(new_product)
+            new_product = add_new_product(user_state['name'], user_state['price'], user_state['description'], user_state['stock_quantity'], photo_path)
             self.bot.send_message(chat_id, "Товар успешно добавлен:")
-            self.send_product_info(chat_id, next((p for p in self.products if p.id == new_product_id), None))
+            self.send_product_info(chat_id, next((p for p in self.products if p.id == new_product.id), None))
             self.bot.send_message(message.chat.id, "Добавить новый товар или обновить каталог?", reply_markup=keyboards.generate_add_or_update_keyboard())
             self.user_states[chat_id] = {'state': 0}
         except Exception as e:
