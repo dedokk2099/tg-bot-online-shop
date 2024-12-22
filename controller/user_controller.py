@@ -74,13 +74,7 @@ class UserController:
                 except telebot.apihelper.ApiTelegramException as e:
                     print(f"Ошибка удаления сообщения: {e}")
             self.user_states[chat_id]["chat_message_ids"] = []
-        if "payment_message_id" in self.user_states[chat_id]:
-            try:
-                self.bot.delete_message(chat_id, self.user_states[chat_id]["payment_message_id"])
-                self.user_states[chat_id]["payment_message_id"] = None
-            except telebot.apihelper.ApiTelegramException as e:
-                    print(f"Ошибка удаления сообщения оплаты в delete_cart_messages: {e}")
-
+            
     def delete_cart_messages_and_cart_is_not_empty(self, chat_id):
         self.delete_cart_messages(chat_id)
         if "show_cart_message_id" in self.user_states[chat_id]:
@@ -368,11 +362,11 @@ class UserController:
             print("Получено сообщение не типа 'successful_payment' (оплата не удалась)")
             self.bot.send_message(chat_id, "К сожалению, оплата не прошла. Пожалуйста, попробуйте еще раз", reply_markup=keyboards.generate_payment_type_keyboard(delivery_type))
         
-    def making_a_payment(self, chat_id, prices):
+    def making_a_payment(self, chat_id, prices, text):
         payment_token = "1744374395:TEST:4cbc130e8b83d35866cf" # тестовый токен пеймастера
         user = self.users.get(chat_id)
-        msg = self.bot.send_invoice(chat_id, title="Оплата", description="Оплата заказа", provider_token=payment_token, currency='rub', prices=prices, invoice_payload=f"Платёж для пользователя {user.id} на сумму {user.calculate_total_sum()} ₽ проведён")
-        self.user_states[chat_id]["payment_message_id"] = msg.message_id
+        msg = self.bot.send_invoice(chat_id, title="Заказ", description=text, provider_token=payment_token, currency='rub', prices=prices, invoice_payload=f"Платёж для пользователя {user.id} на сумму {user.calculate_total_sum()} ₽ проведён")
+        self.user_states[chat_id]["chat_message_ids"].append(msg.message_id)
 
 
     def handle_callback(self, call):
@@ -386,20 +380,26 @@ class UserController:
         if data[1] == "add":
             print(f"handle_callback (add) called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
             product_id = data[2]
-            user = self.users.get(chat_id)
-            if user is None:
-                # Новый пользователь
-                user = User(chat_id)
-                print(f"Создали User {chat_id}")
-                self.users[chat_id] = user
-            user.add_to_cart(product_id)
-            print(f"Добавили товар {product_id} в корзину")
-            self.bot.answer_callback_query(call.id, text="Товар добавлен в корзину!")
-            # Создаем новые кнопки
-            try:
-                self.bot.edit_message_reply_markup(reply_markup=keyboards.generate_go_to_cart_keyboard(product_id, 1), chat_id=chat_id, message_id=message_id)
-            except telebot.apihelper.ApiTelegramException as e:
-                print(f"Ошибка редактирования сообщения товара в каталоге: {e}")
+            product = next((p for p in self.products if p.id == product_id), None)
+            if product.is_active:
+                user = self.users.get(chat_id)
+                if user is None:
+                    # Новый пользователь
+                    user = User(chat_id)
+                    print(f"Создали User {chat_id}")
+                    self.users[chat_id] = user
+                user.add_to_cart(product_id)
+                print(f"Добавили товар {product_id} в корзину")
+                self.bot.answer_callback_query(call.id, text="Товар добавлен в корзину!")
+                # Создаем новые кнопки
+                try:
+                    self.bot.edit_message_reply_markup(reply_markup=keyboards.generate_go_to_cart_keyboard(product_id, 1), chat_id=chat_id, message_id=message_id)
+                except telebot.apihelper.ApiTelegramException as e:
+                    print(f"Ошибка редактирования сообщения товара в каталоге: {e}")
+            else:
+                self.bot.answer_callback_query(call.id, text="Товар снят с продажи")
+
+
         elif data[1] == "decrease":
             print(f"handle_callback (decrease) called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
             product_id = data[2]
@@ -523,10 +523,15 @@ class UserController:
                 quantity = item['quantity']
                 price_for_item = int(product.price * quantity * 100)  # Цена в копейках
                 prices.append(types.LabeledPrice(
-                    label=f"{product.name} x{quantity}", # Название товара и количество
+                    label=f"{product.name} x {quantity}", # Название товара и количество
                     amount=price_for_item # Цена для данной позиции
                 ))
-            self.making_a_payment(chat_id, prices)
+            text = f"Способ получения: {delivery_type_str}, "
+            if delivery_type == DeliveryType.DELIVERY:
+                text += f"адрес доставки: {delivery_address}"
+            else:
+                text += f"адрес пункта самовывоза: {delivery_address}"
+            self.making_a_payment(chat_id, prices, text)
 
     def handle_pickup_point_callback(self, call):
         chat_id = call.message.chat.id
