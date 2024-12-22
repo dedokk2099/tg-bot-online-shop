@@ -1,5 +1,5 @@
 from model.orders import add_new_order
-from model.products import products
+from model.products import get_products
 
 class User:
     def __init__(self, user_id):
@@ -19,6 +19,7 @@ class User:
 
     def get_cart_items(self):
         items = []
+        products = [product for product in get_products() if product.is_active]
         for product_id, quantity in self.cart.items():
             product = next((p for p in products if p.id == product_id), None) # Находим продукт по ID
             if product:

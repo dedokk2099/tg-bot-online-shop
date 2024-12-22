@@ -340,7 +340,6 @@ class AdminController:
                 return
             product_name = product_to_delete.name
             product_to_delete.is_active = False
-            # self.products.remove(product_to_delete)
             self.bot.edit_message_text(f"Товар {product_name} удален!", chat_id, self.confirmation_message_id) #Редактируем сообщение с подтверждением
             self.bot.answer_callback_query(call.id, text="Товар удален!")
             try:
