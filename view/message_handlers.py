@@ -107,3 +107,11 @@ def handle_callback_query(call):
     role_switcher_.admin_controller_.handle_callback(call)
 
 
+#
+@bot.pre_checkout_query_handler(func=lambda query: True)
+def checkout_payment_query(query):
+    role_switcher_.user_controller_.checkout_payment(query)
+
+@bot.message_handler(content_types=['successful_payment'])
+def handle_got_payment(call):
+    role_switcher_.user_controller_.got_payment(call)

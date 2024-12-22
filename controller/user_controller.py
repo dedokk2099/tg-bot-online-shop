@@ -453,6 +453,45 @@ class UserController:
             self.bot.register_next_step_handler(call.message, self.handle_delivery_address)
         self.user_states[chat_id]["chat_message_ids"].append(msg.message_id)
 
+
+    ###
+    def checkout_payment(self, query):
+        self.bot.answer_pre_checkout_query(query.id, ok=True, error_message="Неудачная попытка оплатить заказ")
+
+    def got_payment(self, call):
+        chat_id = call.message.chat.id
+        self.bot.send_message(chat_id, "Оплата произведена успешно", parse_mode='Markdown')
+
+    def making_a_payment(self, total_sum): # функция проведения оплаты
+        payment_token = "1744374395:TEST:4cbc130e8b83d35866cf 2024-12-16 11:00" # тестовый токен пеймастера
+        price = total_sum
+        #@bot.message_handler(commands=['pay']) 
+        #def command_pay(message):            
+        chat_id = self.mesage.chat.id
+
+        self.bot.send_invoice(chat_id, tittle="Оплата", description="Оплата покупки", provider_token=payment_token, currency='rub', prices=price, payload="Произведение платежа")
+
+        self.checkout_payment(chat_id, query)
+        self.got_payment(chat_id, call.mesage)
+  
+        '''
+        @bot.message_handler(commands=['pay']) 
+        def command_pay(message):            
+            bot.send_invoice(message.chat.id, tittle="Оплата", description="Оплата покупки", provider_token=payment_token, currency='rub', prices=price, payload="Произведение платежа")
+
+        @bot.pre_checkout_query_handler(func=lambda query: True)
+        def checkout(pre_checkout_query):
+            bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True, error_message="Неудачная попытка оплатить заказ")
+
+        @bot.message_handler(content_types=['successful_payment'])
+        def got_payment(message):
+            bot.send_message(message.chat.id, "Оплата произведена успешно", parse_mode='Markdown')
+            
+        '''
+            #self.bot.send_message(chat_id, "Заказ оплачен!")
+            #self.create_order(chat_id, delivery_type, delivery_address)
+
+
     def handle_payment_callback(self, call):
         chat_id = call.message.chat.id
         callback_data = call.data
@@ -469,6 +508,9 @@ class UserController:
             user = self.users.get(chat_id)
             total_sum = user.calculate_total_sum()
             # Здесь должен быть код имитации онлайн-оплаты или переход к новой функции, которой передаётся total_sum и в результате которой должен выполниться код ниже:
+            self.bot.send_message(chat_id, "Оплатите заказ", reply_markup=keyboards.generate_payment_keyboard())
+            self.making_a_payment(chat_id, total_sum)
+
             self.bot.send_message(chat_id, "Заказ оплачен!")
             self.create_order(chat_id, delivery_type, delivery_address)
 
