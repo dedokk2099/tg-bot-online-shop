@@ -228,7 +228,7 @@ class UserController:
         
 
     def get_open_orders(self, chat_id):
-        return [order for order in get_orders(customer_id=chat_id) if order.status != OrderStatus.RECEIVED]
+        return [order for order in get_orders(customer_id=chat_id) if order.status != OrderStatus.RECEIVED.value]
 
     def get_order_by_id(self, chat_id, order_id):
         orders = get_orders(customer_id=chat_id)
@@ -238,7 +238,7 @@ class UserController:
         return None
 
     def get_received_orders(self, chat_id):
-        return [order for order in get_orders(customer_id=chat_id) if order.status == OrderStatus.RECEIVED]
+        return [order for order in get_orders(customer_id=chat_id) if order.status == OrderStatus.RECEIVED.value]
 
 
     def send_order_info(self, order, chat_id):
@@ -252,13 +252,13 @@ class UserController:
                 total_item_price = product_price * quantity
                 items_str += f"{i+1}. <b>{product_name}</b>\n{product_price} ₽ x {quantity} = {total_item_price} ₽\n"
         text = f"""Номер заказа: <b>{order.id}</b>
-Статус: <b>{order.status.value}</b>
+Статус: <b>{order.status}</b>
 Дата и время: {order.order_datetime.strftime('%d.%m.%y %H:%M')}
-Способ получения: <b>{order.delivery_type.value}</b>\n
+Способ получения: <b>{order.delivery_type}</b>\n
 Состав заказа:
 {items_str}
 Итого: {order.total_sum} ₽"""
-        if order.delivery_type == DeliveryType.DELIVERY:
+        if order.delivery_type == DeliveryType.DELIVERY.value:
             text += f"\n\nАдрес доставки: {order.delivery_address}"
         else:
             text += f"\n\nАдрес пункта самовывоза: {order.delivery_address}"
@@ -357,7 +357,7 @@ class UserController:
         if message.successful_payment:
             print(message.successful_payment.invoice_payload)
             self.bot.send_message(chat_id, "Оплата произведена успешно!")
-            self.create_order(chat_id, delivery_type, delivery_address)
+            self.create_order(chat_id, delivery_type.value, delivery_address)
         else:
             print("Получено сообщение не типа 'successful_payment' (оплата не удалась)")
             self.bot.send_message(chat_id, "К сожалению, оплата не прошла. Пожалуйста, попробуйте еще раз", reply_markup=keyboards.generate_payment_type_keyboard(delivery_type))
@@ -513,7 +513,7 @@ class UserController:
         self.user_states[chat_id]["delivery_type"] = delivery_type
         delivery_address = state_data.get("delivery_address")
         if data[1] == "on_delivery":
-            self.create_order(chat_id, delivery_type, delivery_address)
+            self.create_order(chat_id, delivery_type.value, delivery_address)
         elif data[1] == "online":
             user = self.users.get(chat_id)
             cart_items = user.get_cart_items()

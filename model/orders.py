@@ -2,7 +2,7 @@ import datetime
 import enum
 from model.products import products
 from model.items import Item, all_items
-
+import model.database as database
 
 class OrderStatus(enum.Enum):
     PROCESSING = 'в обработке'
@@ -16,13 +16,29 @@ class DeliveryType(enum.Enum):
     DELIVERY = 'доставка'
 
 class Order:
-    def __init__(self, customer_id, delivery_type, delivery_address):
-        self.id = f"{customer_id}_{Order.generate_order_id(customer_id, orders_by_customer)}"
-        self.status = OrderStatus.PROCESSING
-        self.order_datetime = datetime.datetime.now()
-        self.delivery_type = delivery_type
+    def __init__(self, customer_id, delivery_type, delivery_address, order_number = None, status = None, date_time = None, total_sum = None):
+        if order_number == None:
+            self.id = f"{customer_id}_{Order.generate_order_id(customer_id, orders_by_customer)}"
+        else:
+            self.id = order_number
+        
+        if status == None:
+            self.status = OrderStatus.PROCESSING.value
+        else:
+            self.status = status
+        
+        if date_time == None:
+            self.order_datetime = datetime.datetime.now()
+        else:
+            self.order_datetime = date_time
+
+        if total_sum == None:
+            self.total_sum = self.calculate_total()
+        else:
+            self.total_sum = total_sum
+
         self.delivery_address = delivery_address
-        self.total_sum = self.calculate_total()
+        self.delivery_type = delivery_type       
         self.customer_id = customer_id
 
     @staticmethod
@@ -42,16 +58,40 @@ class Order:
 # Используем словарь для хранения заказов, индексированный по customer_id
 orders_by_customer = {}
 
+def fill_orders_by_customer():
+    orders = get_base_orders()
+    for order in orders:
+        if order.customer_id not in orders_by_customer:
+            orders_by_customer[order.customer_id] = []
+        orders_by_customer[order.customer_id].append(order)
+
+def fill_all_items():
+    items = database.get_basket()
+    if items != None:
+        for item in items:
+            all_items.append(Item(**item))
+
 def add_new_order(customer_id, items, delivery_type, delivery_address):
     new_order = Order(customer_id, delivery_type, delivery_address)
+
     item_objects = []
     for item_data in items:
         product = item_data['product']
         quantity = item_data['quantity']
         item = Item(new_order.id, product.id, product.name, product.price, quantity) # Передаём order_id в Item
+        database.addBasket(new_order.id, product.id, product.name, quantity, product.price)
         item_objects.append(item)
         all_items.append(item)
     new_order.total_sum = new_order.calculate_total()
+    database.addOrder(
+        new_order.customer_id,
+        new_order.id,
+        new_order.status,
+        new_order.total_sum,
+        new_order.delivery_type,
+        new_order.order_datetime,
+        new_order.delivery_address
+        )
     if customer_id not in orders_by_customer:
         orders_by_customer[customer_id] = []
     orders_by_customer[customer_id].append(new_order)
@@ -70,24 +110,41 @@ def get_orders(customer_id=None, status=None):
     orders.sort(key=lambda order: order.order_datetime, reverse=True)
     return orders
 
+def get_base_orders():
+    orders_db = database.session.query(database.Orders).all()
+    orders_list = []
+    for order in orders_db:
+        exist_order = Order(
+            order.user_id,
+            order.delivery_type,
+            order.delivery_address,
+            order.number_order,
+            order.status,
+            order.datetime,
+            order.total_sum
+            )
+        orders_list.append(exist_order)
+    print(orders_list)
+    return orders_list
+
 def get_order_items(order_id):
     order_items = [item for item in all_items if item.order_id == order_id]
     return order_items
 
 #Пример использования
-order_items1 = [
-    {'product': products[0], 'quantity': 3}, 
-    {'product': products[1], 'quantity': 2}
-    ]
-order_items2 = [{'product': products[0], 'quantity': 1}]
-order_items3 = [{'product': products[2], 'quantity': 2}]
-order_items4 = [
-    {'product': products[1], 'quantity': 3}, 
-    {'product': products[2], 'quantity': 2}
-    ]
+# order_items1 = [
+#     {'product': products[0], 'quantity': 3}, 
+#     {'product': products[1], 'quantity': 2}
+#     ]
+# order_items2 = [{'product': products[0], 'quantity': 1}]
+# order_items3 = [{'product': products[2], 'quantity': 2}]
+# order_items4 = [
+#     {'product': products[1], 'quantity': 3}, 
+#     {'product': products[2], 'quantity': 2}
+#     ]
 
-add_new_order('user123', order_items1, DeliveryType.PICKUP, "город Энск, на центральной площади")
-add_new_order('user123', order_items2, DeliveryType.DELIVERY, "улица Пушкина, дом Колотушкина")
-add_new_order('user456', order_items3, DeliveryType.PICKUP, "Мадагаскар, под пальмой")
-add_new_order('user456', order_items4, DeliveryType.DELIVERY, "Антарктида, станция Мирный")
+# add_new_order('user123', order_items1, DeliveryType.PICKUP, "город Энск, на центральной площади")
+# add_new_order('user123', order_items2, DeliveryType.DELIVERY, "улица Пушкина, дом Колотушкина")
+# add_new_order('user456', order_items3, DeliveryType.PICKUP, "Мадагаскар, под пальмой")
+# add_new_order('user456', order_items4, DeliveryType.DELIVERY, "Антарктида, станция Мирный")
 
