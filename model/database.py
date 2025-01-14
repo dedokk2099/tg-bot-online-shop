@@ -4,35 +4,55 @@ from sqlalchemy.orm import sessionmaker, relationship
 import os,sys
 import sqlite3
 
-# sys.path.insert(1, '/path/to/model')
-#import model.products as products
-#import model.orders as orders
-#from model.products import Product
-#from orders import Order
-
+# Создается базовая модель для записи данных в базу sql
 Base = declarative_base()
+# Запускается база
 engine = create_engine('sqlite:///model/shop.db')
+# Активируется сессия для взаимодействия с базой
 Session = sessionmaker(bind=engine)
 session = Session()
 
 
 class Users(Base):
+    """
+    Модель для записи данных пользователя в базу sql, созданная с помощью sqlalchemy.
+
+    :ivar __tablename__: Название таблицы.
+    :vartype __tablename__: str
+    :ivar id: Идентификатор пользователя.
+    :vartype id: Column[int]
+    :ivar chat_id: Идентификатор чата пользователя.
+    :vartype chat_id: Column[str]
+    :ivar role: Роль пользователя (Admin/User).
+    :vartype role: Column[str]
+    :ivar user_orders: Поле для связи таблицы пользователей с таблицей заказов.
+    :vartype user_orders: _RelationshipDeclared
+    """
     __tablename__ = 'users'
     id = Column(Integer, primary_key=True)
     chat_id = Column(String, unique=True, nullable=False)
     role = Column(String, unique=False, nullable=False)
-    #cart = Column(JSON, default={}) # Храним корзину как JSON
 
-    # связи
-    # order_id = Column(Integer, ForeignKey('orders.id'))
     user_orders = relationship('Orders', back_populates='users')
 
 
 class User:
+    """
+    Класс для работы с таблицей данных пользователя.
+    """
+
     def __init__(self):
+        """
+        Конструктор класса.
+        """
+
         self.Base = Base
 
     def _add_admin(self, chat_id):
+        """
+        Меняет роль пользователя в базе на Admin.
+        """
+
         user = session.query(Users).filter_by(chat_id=chat_id).first()
         session.delete(user)
         session.commit()
@@ -41,11 +61,22 @@ class User:
         session.commit()
     
     def add_new(self, chat_id):
+        """
+        Добавляет новго пользователя в базу.
+        """
+
         user = Users(chat_id=chat_id, role = 'User')
         session.add(user)
         session.commit()
 
     def is_new(self, chat_id):
+        """
+        Проверяет есть ли в базе пользоваетель с данным идентификатором чата.
+
+        :return: True если в базе нет пользователя с данным идентификатором чата, False в любом другом случае.
+        :rtype: bool
+        """
+
         user = session.query(Users).filter_by(chat_id=chat_id).first()
         if user == None:
             return True
@@ -53,6 +84,13 @@ class User:
             return False
 
     def is_admin(self, chat_id):
+        """
+        Проверяет является ли данный пользоваетель администратором.
+
+        :return: True если в базе у пользователя с данным идентификатором чата роль Admin, False в любом другом случае.
+        :rtype: bool
+        """
+
         user = session.query(Users).filter_by(chat_id=chat_id).first()
         if user.role == 'Admin':
             return True
@@ -61,6 +99,31 @@ class User:
 
 
 class Products(Base):
+    """
+    Модель для записи продуктов в базу sql, созданная с помощью sqlalchemy.
+
+    :ivar __tablename__: Название таблицы.
+    :vartype __tablename__: str
+    :ivar id: Порядковый номер товара.
+    :vartype id: Column[int]
+    :ivar product_id: Идентификатор товара.
+    :vartype product_id: Column[str]
+    :ivar name: Название товара.
+    :vartype name: Column[str]
+    :ivar price: Цена товара.
+    :vartype price: Column[int]
+    :ivar description: Описание товара.
+    :vartype description: Column[str]
+    :ivar stock_quantity: Количество товара.
+    :vartype stock_quantity: Column[int]
+    :ivar image: Путь к изображению товара.
+    :vartype image: Column[str]
+    :ivar is_active: Параметр наличия товара на складе (True если товар, есть, False иначе).
+    :vartype is_active: Column[bool]
+    :ivar orders: Поле для связи таблицы товаров с таблицей заказов.
+    :vartype orders: _RelationshipDeclared
+    """
+
     __tablename__ = 'products'
     id = Column(Integer, primary_key=True)
     product_id = Column(String, unique=True, nullable=False) # добавление id предмета
@@ -76,6 +139,29 @@ class Products(Base):
 
 
 class Basket(Base):
+    """
+    Модель для записи набора продуктов для созданного заказа в базу sql, созданная с помощью sqlalchemy.
+
+    :ivar __tablename__: Название таблицы.
+    :vartype __tablename__: str
+    :ivar id: Порядковый номер продукта.
+    :vartype id: Column[int]
+    :ivar order_id: Идентификатор заказа.
+    :vartype order_id: Column[str]
+    :ivar item_id: Идентификатор товара.
+    :vartype item_id: Column[str]
+    :ivar item_name: Название товара.
+    :vartype item_name: Column[str]
+    :ivar price: Цена товара.
+    :vartype price: Column[int]
+    :ivar quantity: Количество товара.
+    :vartype quantity: Column[int]
+    :ivar orders: Поле для связи таблицы наборов товаров с таблицей заказов.
+    :vartype orders: _RelationshipDeclared
+    :ivar items: Поле для связи таблицы наборов товаров с таблицей товаров.
+    :vartype items: _RelationshipDeclared
+    """
+        
     __tablename__ = 'basket'
     id = Column(Integer, primary_key=True)
     order_id = Column(Integer, ForeignKey('orders.number_order'), nullable=False)
@@ -91,6 +177,33 @@ class Basket(Base):
 
 # база данных заказов
 class Orders(Base):
+    """
+    Модель для записи заказов в базу sql, созданная с помощью sqlalchemy.
+
+    :ivar __tablename__: Название таблицы.
+    :vartype __tablename__: str
+    :ivar id: Порядковый номер заказа.
+    :vartype id: Column[int]
+    :ivar user_id: Идентификатор пользователя.
+    :vartype user_id: Column[str]
+    :ivar number_order: Идентификатор заказа.
+    :vartype number_order: Column[int]
+    :ivar status: Статус заказа.
+    :vartype status: Column[str]
+    :ivar total_sum: Сумма заказа.
+    :vartype total_sum: Column[int]
+    :ivar datetime: Дата заказа.
+    :vartype datetime: Column[datetime]
+    :ivar delivery_type: Тип доставки.
+    :vartype delivery_type: Column[str]
+    :ivar delivery_address: Адрес доставки.
+    :vartype delivery_address: Column[str]
+    :ivar users: Поле для связи таблицы заказов с таблицей пользователей.
+    :vartype users: _RelationshipDeclared
+    :ivar items: Поле для связи таблицы заказов с таблицей наборов товаров.
+    :vartype items: _RelationshipDeclared
+    """
+
     __tablename__ = 'orders'
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('users.chat_id'), nullable=False)
@@ -107,18 +220,36 @@ class Orders(Base):
 
 
 class PickUpPoints(Base):
+    """
+    Модель для записи пунктов выдачи заказов в базу sql, созданная с помощью sqlalchemy.
+
+    :ivar __tablename__: Название таблицы.
+    :vartype __tablename__: str
+    :ivar id: Идентификатор пункта.
+    :vartype id: Column[int]
+    :ivar name: Название пунктра.
+    :vartype name: Column[str]
+    :ivar address: Адрес пункта.
+    :vartype address: Column[str]
+    :ivar working_hours: Часы работы.
+    :vartype working_hours: Column[str]
+    """
+    
     __tablename__ = 'points'
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
     address = Column(String, nullable=False)
     working_hours= Column(String, nullable=False)
 
-
-# Base.metadata.drop_all(engine)
+# Создает все модели данных
 Base.metadata.create_all(engine)
 
 # функция добавления товара
 def addItem(item_id, item_name, item_price, item_description, item_quantity, item_image):
+    """
+    Добавляет товар в базу sql.
+    """
+
     item = Products(
         product_id = item_id,
         name=item_name,
@@ -133,18 +264,30 @@ def addItem(item_id, item_name, item_price, item_description, item_quantity, ite
 
 # функция удаление товара
 def deleteItem(item_id):
+    """
+    Удаляет товар из базы sql.
+    """
+
     item = session.query(Products).filter_by(product_id = item_id).first()
     session.delete(item)
     session.commit()
 
 # деактивация товара (для отображения в заказах)
 def disactivateItem(item_id):
+    """
+    В базе sql делает товар недоступным (в поле is_active записывается False).
+    """
+
     item = session.query(Products).filter_by(product_id = item_id).first()
     item.is_active = False
     session.commit()
 
 # функция изменения атрибута товара
 def updateItemAttribute(item_id, item_attribute, item_value):
+    """
+    Меняет в базе sql выбранный атрибут.
+    """
+
     item = session.query(Products).filter_by(product_id = item_id).first()
     if item_attribute == 'name':
         item.name = item_value
@@ -162,6 +305,10 @@ def updateItemAttribute(item_id, item_attribute, item_value):
 
 # функция добавления заказа
 def addOrder(user_id, order_id, order_status, order_sum, delivery_type, order_datetime, delivery_address):
+    """
+    Добавляет заказ в базу sql.
+    """
+
     order = Orders(
         user_id=user_id,
         number_order=order_id,
@@ -176,12 +323,23 @@ def addOrder(user_id, order_id, order_status, order_sum, delivery_type, order_da
 
 # функция добавления в класс Basket
 def addBasket(order_id, item_id, item_name, quantity, price):
+    """
+    Добавляет набор товаров для созданного заказа в базу sql.
+    """
+
     basket = Basket(order_id=order_id, item_id=item_id, item_name=item_name, quantity=quantity, price=price)
     session.add(basket)
     session.commit()
 
 # функция вывода данных из класса Basket
 def get_basket():
+    """
+    Возвращает наборы товаров для всех созданных заказов из базы sql.
+
+    :return: Список словарей наборов товаров для всех заказов из базы sql.
+    :rtype: list
+    """
+    
     basket_db = session.query(Basket).all()
     basket_list = []
     for basket in basket_db:
@@ -192,29 +350,16 @@ def get_basket():
             'quantity': basket.quantity,
             'price': basket.price})
     return basket_list
-    # print(basket_list)
-
-# def get_products_by_order_number(order_number):
-#     items = []
-#     basket_items = session.query(Basket).filter(Basket.order_id==order_number).all()
-#     products = []
-#     for basket_item in basket_items:
-#         product = session.query(Products).filter(Products.product_id == basket_item.item_id).first()
-
-#         if product:
-#             items.append({
-#               'id': product.product_id,
-#               "name": product.name,
-#               "price": basket_item.price,
-#               "description": product.description,
-#               "stock_quantity": product.stock_quantity,
-#               'image': product.image
-#            })
-#         products.append({'product': Product(**items[-1]), 'quantity': basket_item.quantity})
-#     return products
 
 # вывод данных из базы товаров в виде списка
 def get_products():
+    """
+    Возвращает все продукты из базы sql.
+
+    :return: Список словарей продуктов из базы sql.
+    :rtype: list
+    """
+
     products_db = session.query(Products).all()
     products_list = []
     for item in products_db:
@@ -230,103 +375,12 @@ def get_products():
     # print(products_list)
     return products_list
 
-# def get_user_products():
-#     products_db = session.query(Products).all()
-#     products_list = []
-#     for item in products_db:
-#         products_list.append(Product(
-#             item.product_id,
-#             item.name,
-#             item.price,
-#             item.description,
-#             item.stock_quantity,
-#             item.image
-#         ))
-#     return products_list
-
 # функция изменения статуса заказа
 def change_status(number_order, order_status):
+    """
+    Меняет статус заказа в базе sql.
+    """
+
     order = session.query(Orders).filter_by(number_order=number_order).first()
     order.status = order_status
     session.commit()
-
-# # функция вывода заказов конкретного пользователя
-# def get_user_orders(user_id):
-#     #all_user_order = session.query(Orders, Users).join(Users).all()
-#     user_orders = session.query(Orders).filter_by(user_id=user_id).all()
-#     user_orders_list = []
-#     for order in user_orders:
-#         user_orders_list.append({'id': order.id, 'number_order': order.number_order, 'status': order.status, 'total_sum': order.total_sum, 'datetime': order.datetime})
-#     # print(user_orders_list)
-#     return user_orders_list
-
-# # функция вывода заказов конкретного пользователя по заданному статусу
-# def get_user_status_orders(user_id, order_status):
-#     user_orders = session.query(Orders).filter_by(user_id=user_id, status=order_status).all()
-#     user_orders_list = []
-#     for order in user_orders:
-#         user_orders_list.append({'id': order.id, 'number_order': order.number_order, 'total_sum': order.total_sum, 'datetime': order.datetime})
-#     # print(user_orders_list)
-#     return user_orders_list
-
-# # функция вывода заказов конкретного пользователя кроме конкретного статуса
-# def get_user_except_orders(user_id, order_status):
-#     user_orders = session.query(Orders).filter(Orders.user_id == user_id, Orders.status != order_status).all()
-#     user_orders_list = []
-#     for order in user_orders:
-#         user_orders_list.append({'id': order.id, 'number_order': order.number_order, 'total_sum': order.total_sum, 'datetime': order.datetime})
-#     # print(user_orders_list)
-#     return user_orders_list
-
-
-# id = '2023435947' #вставьте необходимый
-# user = session.query(Users).filter_by(chat_id=id).first()
-# session.delete(user)
-# session.commit()
-
-# user = session.query(Products).first()
-# session.delete(user)
-# session.commit()
-
-# new_admin = Users(chat_id='884454010', role = 'Admin')
-# session.add(new_admin)
-# session.commit()
-
-# addOrder(user, 113424, 'efefв', 1323, '3141432')
-# addOrder(2023435948, 13451234, 'XFafwq', 35623, '1432')
-# addOrder(user, 15675624, 'r fwwfe', 245324, '3141')
-
-# addItem(122, 'Хлеб', 100, 'Свежий хлеб', 30, '')
-# addItem(345, 'Молоко', 160, 'Птичье молоко', 7, '')
-# addItem(555, 'Телефон', 1000, 'Айфон на андроид', 1, '')
-
-# products = get_products()
-# products_as_class = [Product(**data) for data in products]
-
-# items = [
-#     {'product': products_as_class[0], 'quantity': 3},
-#     {'product': products_as_class[2], 'quantity': 1}
-#     ]
-
-# order = Order('2023435947', items, 'самовывоз')
-# addOrder(order.customer_id, order.id, order.status.value, order.total_sum, order.delivery_type, order.order_datetime)
-# addBasket(order.id, order.items[0]['product'].id, order.items[0]['quantity'], order.items[0]['product'].price)
-# addBasket(order.id, order.items[1]['product'].id, order.items[1]['quantity'], order.items[1]['product'].price)
-# addBasket(order.id, order.items[2]['product'].id, order.items[2]['quantity'], order.items[2]['product'].price)
-
-# order = session.query(Orders).filter_by(number_order=113424).first()
-# item = session.query(Products).filter_by(product_id=555).first()
-# basket = Basket(orders=order, items=item)
-# session.add(basket)
-# session.commit()
-
-# basket = Basket(order_id=113424, item_id=345)
-# session.add(basket)
-# session.commit()
-# basket = Basket(113424, 122)
-# session.add(basket)
-# session.commit()
-
-# updateItemAttribute(122, 'image', 'https://avatars.mds.yandex.net/i?id=45760c598fc7066e3b979e0574d1f5c504e023c6-10414509-images-thumbs&n=13')
-# updateItemAttribute(345, 'image', 'https://cdn-img.perekrestok.ru/i/800x800-fit/xdelivery/files/5f/0c/6c03e02b315c21a6d1daca6bb029.jpg')
-# updateItemAttribute(555, 'image', 'https://avatars.mds.yandex.net/i?id=5920a940a44bbefcb98868342436b832_l-4292261-images-thumbs&n=13')
