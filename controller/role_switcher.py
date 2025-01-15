@@ -2,7 +2,6 @@ from model.database import User
 from view.keyboards import generate_admin_keyboard, generate_user_keyboard
 import controller.admin_controller as admin_controller
 import controller.user_controller as user_controller
-import view.user_interface as user_interface
 import model.orders as orders
 
 class RoleSwitcher:
