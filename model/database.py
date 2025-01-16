@@ -154,25 +154,26 @@ class Products(Base):
 
 class Basket(Base):
     """
-    Представляет корзину покупок в базе данных.
+    Модель для записи набора продуктов для созданного заказа в базу sql, созданная с помощью sqlalchemy.
 
-    Таблица `basket` содержит информацию о товарах, добавленных в заказ.
-
-    Attributes:
-        id (int): Уникальный идентификатор записи в корзине (первичный ключ).
-        order_id (int): Идентификатор заказа, которому принадлежит данная запись в корзине (внешний ключ на таблицу `orders`).
-        item_id (int): Идентификатор товара (внешний ключ на таблицу `products`).
-        item_name (str): Название товара, добавленного в корзину.
-        quantity (int): Количество единиц товара в корзине.
-        price (int): Цена товара на момент добавления в корзину.
-
-    Relationships:
-        orders (:class:`Orders`): Объект заказа, к которому относится эта запись корзины. 
-             Связь `один-ко-многим` с таблицей `orders` через поле `order_id`.
-            Использует `back_populates='items'` для двунаправленной связи.
-        items (:class:`Products`): Объект товара, информация о котором хранится в данной записи корзины.
-             Связь `многие-к-одному` с таблицей `products` через поле `item_id`.
-             Использует `back_populates='orders'` для двунаправленной связи.
+    :ivar tablename: Название таблицы.
+    :vartype tablename: str
+    :ivar id: Порядковый номер продукта.
+    :vartype id: Column[int]
+    :ivar order_id: Идентификатор заказа.
+    :vartype order_id: Column[str]
+    :ivar item_id: Идентификатор товара.
+    :vartype item_id: Column[str]
+    :ivar item_name: Название товара.
+    :vartype item_name: Column[str]
+    :ivar price: Цена товара.
+    :vartype price: Column[int]
+    :ivar quantity: Количество товара.
+    :vartype quantity: Column[int]
+    :ivar orders: Поле для связи таблицы наборов товаров с таблицей заказов.
+    :vartype orders: _RelationshipDeclared
+    :ivar items: Поле для связи таблицы наборов товаров с таблицей товаров.
+    :vartype items: _RelationshipDeclared
     """
     __tablename__ = 'basket'
     id = Column(Integer, primary_key=True)

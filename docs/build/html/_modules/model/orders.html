@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+
+<html lang="ru" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>model.orders &#8212; документация TG-BOT-ONLINE-SHOP 1.0</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=9ca2116e"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/translations.js?v=5b699b7f"></script>
+    <link rel="index" title="Алфавитный указатель" href="../../genindex.html" />
+    <link rel="search" title="Поиск" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Исходный код model.orders</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">datetime</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">enum</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">model.products</span><span class="w"> </span><span class="kn">import</span> <span class="n">products</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">model.items</span><span class="w"> </span><span class="kn">import</span> <span class="n">Item</span><span class="p">,</span> <span class="n">all_items</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">model.database</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">database</span>
+
+<div class="viewcode-block" id="OrderStatus">
+<a class="viewcode-back" href="../../model.html#model.orders.OrderStatus">[документация]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">OrderStatus</span><span class="p">(</span><span class="n">enum</span><span class="o">.</span><span class="n">Enum</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Представляет возможные статусы заказа.</span>
+<span class="sd">    Каждый статус является строковым значением, описывающим текущее</span>
+<span class="sd">    состояние заказа</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">PROCESSING</span> <span class="o">=</span> <span class="s1">&#39;в обработке&#39;</span>
+    <span class="n">ASSEMBLING</span> <span class="o">=</span> <span class="s1">&#39;собирается&#39;</span>
+    <span class="n">SHIPPED</span> <span class="o">=</span> <span class="s1">&#39;передан в доставку&#39;</span>
+    <span class="n">ARRIVED_PICKUP</span> <span class="o">=</span> <span class="s1">&#39;прибыл в пункт выдачи&#39;</span>
+    <span class="n">RECEIVED</span> <span class="o">=</span> <span class="s1">&#39;получен&#39;</span></div>
+
+
+<div class="viewcode-block" id="DeliveryType">
+<a class="viewcode-back" href="../../model.html#model.orders.DeliveryType">[документация]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">DeliveryType</span><span class="p">(</span><span class="n">enum</span><span class="o">.</span><span class="n">Enum</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Представляет возможные типы доставки.</span>
+<span class="sd">    Каждый тип доставки является строковым значением, описывающим</span>
+<span class="sd">    способ доставки заказа.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">PICKUP</span> <span class="o">=</span> <span class="s1">&#39;самовывоз&#39;</span>
+    <span class="n">DELIVERY</span> <span class="o">=</span> <span class="s1">&#39;доставка&#39;</span></div>
+
+
+<div class="viewcode-block" id="Order">
+<a class="viewcode-back" href="../../model.html#model.orders.Order">[документация]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Order</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Используется для хранения данных о заказе во время работы бота</span>
+
+<span class="sd">    :ivar id: Идентификатор заказа</span>
+<span class="sd">    :vartype id: str</span>
+<span class="sd">    :ivar status: Статус заказа</span>
+<span class="sd">    :vartype status: str</span>
+<span class="sd">    :ivar order_datetime: Дата и время создания заказа</span>
+<span class="sd">    :vartype order_datetime: datetime.datetime</span>
+<span class="sd">    :ivar total_sum: Общая сумма заказа</span>
+<span class="sd">    :vartype total_sum: int</span>
+<span class="sd">    :ivar delivery_address: Адрес доставки или пункта выдачи</span>
+<span class="sd">    :vartype delivery_address: str</span>
+<span class="sd">    :ivar delivery_type: Тип получения заказа</span>
+<span class="sd">    :vartype delivery_type: str</span>
+<span class="sd">    :ivar customer_id: Идентификатор пользователя, сделавшего заказ</span>
+<span class="sd">    :vartype customer_id: int</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">customer_id</span><span class="p">,</span> <span class="n">delivery_type</span><span class="p">,</span> <span class="n">delivery_address</span><span class="p">,</span> <span class="n">order_number</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">status</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">date_time</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">total_sum</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Инициализирует новый объект Order. Записывает атрибуты заказа в поля класса.</span>
+<span class="sd">        При создании нового заказа часть атрибутов генерируются при помощи методов.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">if</span> <span class="n">order_number</span> <span class="o">==</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">customer_id</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">Order</span><span class="o">.</span><span class="n">generate_order_id</span><span class="p">(</span><span class="n">customer_id</span><span class="p">,</span><span class="w"> </span><span class="n">orders_by_customer</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">order_number</span>
+        
+        <span class="k">if</span> <span class="n">status</span> <span class="o">==</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">OrderStatus</span><span class="o">.</span><span class="n">PROCESSING</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">status</span>
+        
+        <span class="k">if</span> <span class="n">date_time</span> <span class="o">==</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">order_datetime</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">order_datetime</span> <span class="o">=</span> <span class="n">date_time</span>
+
+        <span class="k">if</span> <span class="n">total_sum</span> <span class="o">==</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">total_sum</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calculate_total</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">total_sum</span> <span class="o">=</span> <span class="n">total_sum</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">delivery_address</span> <span class="o">=</span> <span class="n">delivery_address</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">delivery_type</span> <span class="o">=</span> <span class="n">delivery_type</span>       
+        <span class="bp">self</span><span class="o">.</span><span class="n">customer_id</span> <span class="o">=</span> <span class="n">customer_id</span>
+
+<div class="viewcode-block" id="Order.generate_order_id">
+<a class="viewcode-back" href="../../model.html#model.orders.Order.generate_order_id">[документация]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">generate_order_id</span><span class="p">(</span><span class="n">customer_id</span><span class="p">,</span> <span class="n">orders_by_customer</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Генерирует порядковую часть номера заказа</span>
+
+<span class="sd">        :param customer_id: Идентификатор пользователя</span>
+<span class="sd">        :type customer_id: </span>
+<span class="sd">        :param orders_by_customer: Словарь заказов, сгруппированных по идентификатору пользователя</span>
+<span class="sd">        :type orders_by_customer: </span>
+<span class="sd">        :return: Порядковая часть номера заказа</span>
+<span class="sd">        :rtype: int</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">orders_by_customer</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">customer_id</span><span class="p">,</span> <span class="p">[]))</span> <span class="o">+</span> <span class="mi">1</span></div>
+
+
+<div class="viewcode-block" id="Order.calculate_total">
+<a class="viewcode-back" href="../../model.html#model.orders.Order.calculate_total">[документация]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">calculate_total</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Вычисляет сумму заказа</span>
+
+<span class="sd">        :return: Общая стоимость заказа</span>
+<span class="sd">        :rtype: int</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">total</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">all_items</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">order_id</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">:</span>
+                <span class="n">total</span> <span class="o">+=</span> <span class="n">item</span><span class="o">.</span><span class="n">price</span> <span class="o">*</span> <span class="n">item</span><span class="o">.</span><span class="n">quantity</span>
+        <span class="k">return</span> <span class="n">total</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Order(id=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">, status=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">status</span><span class="si">}</span><span class="s2">, total=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">total_sum</span><span class="si">}</span><span class="s2">)&quot;</span></div>
+
+
+<span class="c1"># Используем словарь для хранения заказов, индексированный по customer_id</span>
+<span class="n">orders_by_customer</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Словарь для хранения заказов, индексированный по идентификатору пользователя</span>
+
+<span class="sd">:type: dict[int, list[Order]]</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="fill_orders_by_customer">
+<a class="viewcode-back" href="../../model.html#model.orders.fill_orders_by_customer">[документация]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">fill_orders_by_customer</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Заполняет orders_by_customer заказами из базы</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">orders</span> <span class="o">=</span> <span class="n">get_base_orders</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">order</span> <span class="ow">in</span> <span class="n">orders</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">order</span><span class="o">.</span><span class="n">customer_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">orders_by_customer</span><span class="p">:</span>
+            <span class="n">orders_by_customer</span><span class="p">[</span><span class="n">order</span><span class="o">.</span><span class="n">customer_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">orders_by_customer</span><span class="p">[</span><span class="n">order</span><span class="o">.</span><span class="n">customer_id</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">order</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="fill_all_items">
+<a class="viewcode-back" href="../../model.html#model.orders.fill_all_items">[документация]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">fill_all_items</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Заполняет список all_items товарами из базы</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">items</span> <span class="o">=</span> <span class="n">database</span><span class="o">.</span><span class="n">get_basket</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">items</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">items</span><span class="p">:</span>
+            <span class="n">all_items</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Item</span><span class="p">(</span><span class="o">**</span><span class="n">item</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="add_new_order">
+<a class="viewcode-back" href="../../model.html#model.orders.add_new_order">[документация]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">add_new_order</span><span class="p">(</span><span class="n">customer_id</span><span class="p">,</span> <span class="n">items</span><span class="p">,</span> <span class="n">delivery_type</span><span class="p">,</span> <span class="n">delivery_address</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Создает новый заказ на основе предоставленных данных, добавляет товары</span>
+<span class="sd">    в заказ, а также обновляет базу данных</span>
+
+<span class="sd">    :param customer_id: Идентификатор пользователя, делающего заказ</span>
+<span class="sd">    :type customer_id: int</span>
+<span class="sd">    :param items: Список словарей, каждый из которых содержит информацию о товаре (&#39;product&#39; и &#39;quantity&#39;)</span>
+<span class="sd">    :type items: list[dict]</span>
+<span class="sd">    :param delivery_type: Тип получения заказа</span>
+<span class="sd">    :type delivery_type: str</span>
+<span class="sd">    :param delivery_address: Адрес доставки или пункта выдачи</span>
+<span class="sd">    :type delivery_address: str</span>
+<span class="sd">    :return: Объект созданного заказа</span>
+<span class="sd">    :rtype: Order</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">new_order</span> <span class="o">=</span> <span class="n">Order</span><span class="p">(</span><span class="n">customer_id</span><span class="p">,</span> <span class="n">delivery_type</span><span class="p">,</span> <span class="n">delivery_address</span><span class="p">)</span>
+
+    <span class="n">item_objects</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">item_data</span> <span class="ow">in</span> <span class="n">items</span><span class="p">:</span>
+        <span class="n">product</span> <span class="o">=</span> <span class="n">item_data</span><span class="p">[</span><span class="s1">&#39;product&#39;</span><span class="p">]</span>
+        <span class="n">quantity</span> <span class="o">=</span> <span class="n">item_data</span><span class="p">[</span><span class="s1">&#39;quantity&#39;</span><span class="p">]</span>
+        <span class="n">item</span> <span class="o">=</span> <span class="n">Item</span><span class="p">(</span><span class="n">new_order</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">product</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">product</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">product</span><span class="o">.</span><span class="n">price</span><span class="p">,</span> <span class="n">quantity</span><span class="p">)</span> <span class="c1"># Передаём order_id в Item</span>
+        <span class="n">database</span><span class="o">.</span><span class="n">addBasket</span><span class="p">(</span><span class="n">new_order</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">product</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">product</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">quantity</span><span class="p">,</span> <span class="n">product</span><span class="o">.</span><span class="n">price</span><span class="p">)</span>
+        <span class="n">item_objects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+        <span class="n">all_items</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+    <span class="n">new_order</span><span class="o">.</span><span class="n">total_sum</span> <span class="o">=</span> <span class="n">new_order</span><span class="o">.</span><span class="n">calculate_total</span><span class="p">()</span>
+    <span class="n">database</span><span class="o">.</span><span class="n">addOrder</span><span class="p">(</span>
+        <span class="n">new_order</span><span class="o">.</span><span class="n">customer_id</span><span class="p">,</span>
+        <span class="n">new_order</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+        <span class="n">new_order</span><span class="o">.</span><span class="n">status</span><span class="p">,</span>
+        <span class="n">new_order</span><span class="o">.</span><span class="n">total_sum</span><span class="p">,</span>
+        <span class="n">new_order</span><span class="o">.</span><span class="n">delivery_type</span><span class="p">,</span>
+        <span class="n">new_order</span><span class="o">.</span><span class="n">order_datetime</span><span class="p">,</span>
+        <span class="n">new_order</span><span class="o">.</span><span class="n">delivery_address</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">customer_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">orders_by_customer</span><span class="p">:</span>
+        <span class="n">orders_by_customer</span><span class="p">[</span><span class="n">customer_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">orders_by_customer</span><span class="p">[</span><span class="n">customer_id</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_order</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">new_order</span></div>
+
+
+<div class="viewcode-block" id="get_orders">
+<a class="viewcode-back" href="../../model.html#model.orders.get_orders">[документация]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_orders</span><span class="p">(</span><span class="n">customer_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">status</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Возвращает список заказов, отфильтрованный по customer_id и/или status.</span>
+
+<span class="sd">    Возвращает список объектов Order, отфильтрованный по идентификатору пользователя</span>
+<span class="sd">    и/или статусу заказа, если они предоставлены. Возвращает все заказы, если</span>
+<span class="sd">    параметры фильтрации не указаны.</span>
+
+<span class="sd">    :param customer_id: Идентификатор пользователя для фильтрации заказов (опционально)</span>
+<span class="sd">    :type customer_id: int, optional</span>
+<span class="sd">    :param status: Статус заказа для фильтрации (опционально)</span>
+<span class="sd">    :type status: str, optional</span>
+<span class="sd">    :return: Список отфильтрованных заказов</span>
+<span class="sd">    :rtype: list[Order]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">orders</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">customer_orders</span> <span class="ow">in</span> <span class="n">orders_by_customer</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+      <span class="k">for</span> <span class="n">order</span> <span class="ow">in</span> <span class="n">customer_orders</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">customer_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">order</span><span class="o">.</span><span class="n">customer_id</span> <span class="o">!=</span> <span class="n">customer_id</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">status</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">order</span><span class="o">.</span><span class="n">status</span> <span class="o">!=</span> <span class="n">status</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">orders</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">order</span><span class="p">)</span>
+    <span class="n">orders</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">order</span><span class="p">:</span> <span class="n">order</span><span class="o">.</span><span class="n">order_datetime</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">orders</span></div>
+
+
+<div class="viewcode-block" id="get_base_orders">
+<a class="viewcode-back" href="../../model.html#model.orders.get_base_orders">[документация]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_base_orders</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Возвращает список заказов из базы данных</span>
+
+<span class="sd">    Запрашивает все заказы из базы данных и преобразует их</span>
+<span class="sd">    в объекты `Order`, которые затем добавляются в список.</span>
+<span class="sd">    Список заказов затем возвращается.</span>
+
+<span class="sd">    :return: Список объектов `Order` из базы данных</span>
+<span class="sd">    :rtype: list[Order]</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">orders_db</span> <span class="o">=</span> <span class="n">database</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">database</span><span class="o">.</span><span class="n">Orders</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+    <span class="n">orders_list</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">order</span> <span class="ow">in</span> <span class="n">orders_db</span><span class="p">:</span>
+        <span class="n">exist_order</span> <span class="o">=</span> <span class="n">Order</span><span class="p">(</span>
+            <span class="n">order</span><span class="o">.</span><span class="n">user_id</span><span class="p">,</span>
+            <span class="n">order</span><span class="o">.</span><span class="n">delivery_type</span><span class="p">,</span>
+            <span class="n">order</span><span class="o">.</span><span class="n">delivery_address</span><span class="p">,</span>
+            <span class="n">order</span><span class="o">.</span><span class="n">number_order</span><span class="p">,</span>
+            <span class="n">order</span><span class="o">.</span><span class="n">status</span><span class="p">,</span>
+            <span class="n">order</span><span class="o">.</span><span class="n">datetime</span><span class="p">,</span>
+            <span class="n">order</span><span class="o">.</span><span class="n">total_sum</span>
+            <span class="p">)</span>
+        <span class="n">orders_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">exist_order</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">orders_list</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">orders_list</span></div>
+
+
+<div class="viewcode-block" id="get_order_items">
+<a class="viewcode-back" href="../../model.html#model.orders.get_order_items">[документация]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_order_items</span><span class="p">(</span><span class="n">order_id</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Возвращает список товаров конкретного заказа</span>
+
+<span class="sd">    Извлекает из общего списка `all_items` все товары, </span>
+<span class="sd">    которые принадлежат заказу с указанным идентификатором.</span>
+
+<span class="sd">    :param order_id: Идентификатор заказа</span>
+<span class="sd">    :type order_id: str</span>
+<span class="sd">    :return: Список товаров, принадлежащих заказу</span>
+<span class="sd">    :rtype: list[Item]</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">order_items</span> <span class="o">=</span> <span class="p">[</span><span class="n">item</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">all_items</span> <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">order_id</span> <span class="o">==</span> <span class="n">order_id</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">order_items</span></div>
+
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">TG-BOT-ONLINE-SHOP</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Искать" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Навигация</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">tg-bot-online-shop</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Код модуля</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Dedevshin A, Ilyushin Y, Alekseev A.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -5,6 +5,11 @@ from model.items import Item, all_items
 import model.database as database
 
 class OrderStatus(enum.Enum):
+    '''
+    Представляет возможные статусы заказа.
+    Каждый статус является строковым значением, описывающим текущее
+    состояние заказа
+    '''
     PROCESSING = 'в обработке'
     ASSEMBLING = 'собирается'
     SHIPPED = 'передан в доставку'
@@ -12,11 +17,38 @@ class OrderStatus(enum.Enum):
     RECEIVED = 'получен'
 
 class DeliveryType(enum.Enum):
+    '''
+    Представляет возможные типы доставки.
+    Каждый тип доставки является строковым значением, описывающим
+    способ доставки заказа.
+    '''
     PICKUP = 'самовывоз'
     DELIVERY = 'доставка'
 
 class Order:
+    """
+    Используется для хранения данных о заказе во время работы бота
+
+    :ivar id: Идентификатор заказа
+    :vartype id: str
+    :ivar status: Статус заказа
+    :vartype status: str
+    :ivar order_datetime: Дата и время создания заказа
+    :vartype order_datetime: datetime.datetime
+    :ivar total_sum: Общая сумма заказа
+    :vartype total_sum: int
+    :ivar delivery_address: Адрес доставки или пункта выдачи
+    :vartype delivery_address: str
+    :ivar delivery_type: Тип получения заказа
+    :vartype delivery_type: str
+    :ivar customer_id: Идентификатор пользователя, сделавшего заказ
+    :vartype customer_id: int
+    """
     def __init__(self, customer_id, delivery_type, delivery_address, order_number = None, status = None, date_time = None, total_sum = None):
+        '''
+        Инициализирует новый объект Order. Записывает атрибуты заказа в поля класса.
+        При создании нового заказа часть атрибутов генерируются при помощи методов.
+        '''
         if order_number == None:
             self.id = f"{customer_id}_{Order.generate_order_id(customer_id, orders_by_customer)}"
         else:
@@ -43,9 +75,25 @@ class Order:
 
     @staticmethod
     def generate_order_id(customer_id, orders_by_customer):
+        '''
+        Генерирует порядковую часть номера заказа
+
+        :param customer_id: Идентификатор пользователя
+        :type customer_id: 
+        :param orders_by_customer: Словарь заказов, сгруппированных по идентификатору пользователя
+        :type orders_by_customer: 
+        :return: Порядковая часть номера заказа
+        :rtype: int
+        '''
         return len(orders_by_customer.get(customer_id, [])) + 1
 
     def calculate_total(self):
+        '''
+        Вычисляет сумму заказа
+
+        :return: Общая стоимость заказа
+        :rtype: int
+        '''
         total = 0
         for item in all_items:
             if item.order_id == self.id:
@@ -57,8 +105,16 @@ class Order:
 
 # Используем словарь для хранения заказов, индексированный по customer_id
 orders_by_customer = {}
+"""
+Словарь для хранения заказов, индексированный по идентификатору пользователя
+
+:type: dict[int, list[Order]]
+"""
 
 def fill_orders_by_customer():
+    '''
+    Заполняет orders_by_customer заказами из базы
+    '''
     orders = get_base_orders()
     for order in orders:
         if order.customer_id not in orders_by_customer:
@@ -66,12 +122,30 @@ def fill_orders_by_customer():
         orders_by_customer[order.customer_id].append(order)
 
 def fill_all_items():
+    '''
+    Заполняет список all_items товарами из базы
+    '''
     items = database.get_basket()
     if items != None:
         for item in items:
             all_items.append(Item(**item))
 
 def add_new_order(customer_id, items, delivery_type, delivery_address):
+    """
+    Создает новый заказ на основе предоставленных данных, добавляет товары
+    в заказ, а также обновляет базу данных
+
+    :param customer_id: Идентификатор пользователя, делающего заказ
+    :type customer_id: int
+    :param items: Список словарей, каждый из которых содержит информацию о товаре ('product' и 'quantity')
+    :type items: list[dict]
+    :param delivery_type: Тип получения заказа
+    :type delivery_type: str
+    :param delivery_address: Адрес доставки или пункта выдачи
+    :type delivery_address: str
+    :return: Объект созданного заказа
+    :rtype: Order
+    """
     new_order = Order(customer_id, delivery_type, delivery_address)
 
     item_objects = []
@@ -98,7 +172,20 @@ def add_new_order(customer_id, items, delivery_type, delivery_address):
     return new_order
 
 def get_orders(customer_id=None, status=None):
-    """Возвращает список заказов, отфильтрованный по customer_id и/или status."""
+    """
+    Возвращает список заказов, отфильтрованный по customer_id и/или status.
+
+    Возвращает список объектов Order, отфильтрованный по идентификатору пользователя
+    и/или статусу заказа, если они предоставлены. Возвращает все заказы, если
+    параметры фильтрации не указаны.
+
+    :param customer_id: Идентификатор пользователя для фильтрации заказов (опционально)
+    :type customer_id: int, optional
+    :param status: Статус заказа для фильтрации (опционально)
+    :type status: str, optional
+    :return: Список отфильтрованных заказов
+    :rtype: list[Order]
+    """
     orders = []
     for customer_orders in orders_by_customer.values():
       for order in customer_orders:
@@ -111,6 +198,16 @@ def get_orders(customer_id=None, status=None):
     return orders
 
 def get_base_orders():
+    '''
+    Возвращает список заказов из базы данных
+
+    Запрашивает все заказы из базы данных и преобразует их
+    в объекты `Order`, которые затем добавляются в список.
+    Список заказов затем возвращается.
+
+    :return: Список объектов `Order` из базы данных
+    :rtype: list[Order]
+    '''
     orders_db = database.session.query(database.Orders).all()
     orders_list = []
     for order in orders_db:
@@ -128,23 +225,17 @@ def get_base_orders():
     return orders_list
 
 def get_order_items(order_id):
+    '''
+    Возвращает список товаров конкретного заказа
+
+    Извлекает из общего списка `all_items` все товары, 
+    которые принадлежат заказу с указанным идентификатором.
+
+    :param order_id: Идентификатор заказа
+    :type order_id: str
+    :return: Список товаров, принадлежащих заказу
+    :rtype: list[Item]
+    '''
     order_items = [item for item in all_items if item.order_id == order_id]
     return order_items
-
-#Пример использования
-# order_items1 = [
-#     {'product': products[0], 'quantity': 3}, 
-#     {'product': products[1], 'quantity': 2}
-#     ]
-# order_items2 = [{'product': products[0], 'quantity': 1}]
-# order_items3 = [{'product': products[2], 'quantity': 2}]
-# order_items4 = [
-#     {'product': products[1], 'quantity': 3}, 
-#     {'product': products[2], 'quantity': 2}
-#     ]
-
-# add_new_order('user123', order_items1, DeliveryType.PICKUP, "город Энск, на центральной площади")
-# add_new_order('user123', order_items2, DeliveryType.DELIVERY, "улица Пушкина, дом Колотушкина")
-# add_new_order('user456', order_items3, DeliveryType.PICKUP, "Мадагаскар, под пальмой")
-# add_new_order('user456', order_items4, DeliveryType.DELIVERY, "Антарктида, станция Мирный")
 

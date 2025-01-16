@@ -2,7 +2,29 @@ import uuid
 import model.database as database
 
 class Product:
+    """
+    Используется для хранения данных о товаре во время работы бота
+
+    :ivar id: Уникальный идентификатор товара.
+    :vartype id: str
+    :ivar name: Наименование товара.
+    :vartype name: str
+    :ivar price: Цена товара.
+    :vartype price: int
+    :ivar description: Описание товара.
+    :vartype description: str
+    :ivar stock_quantity: Количество товара на складе.
+    :vartype stock_quantity: int
+    :ivar image: Ссылка на изображение товара.
+    :vartype image: str
+    :ivar is_active: Статус активности товара (True - активен, False - неактивен).
+    :vartype is_active: bool
+    """
     def __init__(self, name, price, description, stock_quantity, image, is_active = None, id = None):
+        '''
+        Инициализирует новый объект Product. Записывает атрибуты товара в поля класса.
+        При создании нового товара часть атрибутов принимают стандартное значение и генерируется уникальный идентификатор.
+        '''
         if id == None:
             self.id = str(uuid.uuid4())
         else:
@@ -28,16 +50,32 @@ class Product:
         return f"Product(id={self.id}, name={self.name}, price={self.price})"
 
 class DuplicateProductIdError(Exception): # исключение при дублировании ID
+    """
+    Исключение, возникающее при дублировании ID товара.
+
+    Используется для обработки ситуаций, когда при создании нового
+    товара его идентификатор уже существует в базе данных.
+    """
     pass
 
-# products_data = [
-#     {"name": "Банан", "price": 100, "description": "Банан из Африки, жёлтый", "stock_quantity": 50, 'image': 'https://avatars.mds.yandex.net/i?id=45760c598fc7066e3b979e0574d1f5c504e023c6-10414509-images-thumbs&n=13'},
-#     {"name": "Хлеб", "price": 200, "description": "Местный, свежий", "stock_quantity": 20, 'image':  'https://cdn-img.perekrestok.ru/i/800x800-fit/xdelivery/files/5f/0c/6c03e02b315c21a6d1daca6bb029.jpg'},
-#     {"name": "Телефон", "price": 300, "description": "Импортный, на Android", "stock_quantity": 10, 'image':  'https://avatars.mds.yandex.net/i?id=5920a940a44bbefcb98868342436b832_l-4292261-images-thumbs&n=13'},
-#     ]
 products = []
+'''
+Список хранит все существующие товары в виде экземпляров класса Product
+
+:type: list[Product]
+'''
 
 def get_products():
+    """
+    Получает и возвращает список товаров.
+
+    Очищает текущий список товаров, получает список товаров
+    из базы данных и создает объекты `Product`, добавляя их
+    в список, который затем возвращается.
+
+    :return: Список объектов `Product`
+    :rtype: list[Product]
+    """
     products.clear()
     base_products = database.get_products()
     for item in base_products:
@@ -46,6 +84,27 @@ def get_products():
     return products
 
 def add_new_product(name, price, description, stock_quantity, image):
+    """
+    Добавляет новый товар.
+
+    Создает новый объект `Product` на основе входных данных,
+    добавляет его в базу данных и проверяет на наличие дубликатов, 
+    после чего добавляет товар в список и возвращает его.
+
+    :param name: Наименование товара
+    :type name: str
+    :param price: Цена товара
+    :type price: int or str
+    :param description: Описание товара
+    :type description: str
+    :param stock_quantity: Количество товара на складе.
+    :type stock_quantity: int or str
+    :param image: Ссылка на изображение товара
+    :type image: str
+    :raises DuplicateProductIdError: Если товар с таким ID уже существует
+    :return: Объект созданного товара
+    :rtype: Product
+    """
     new_product = Product(name, price, description, stock_quantity, image)
     database.addItem(
         new_product.id,

@@ -19,7 +19,13 @@ if not os.path.exists(PHOTO_FOLDER):
     os.makedirs(PHOTO_FOLDER)
 
 class AdminController:
+    """
+    Отвечает за работу бота в части администратора
+    """
     def __init__(self, bot):
+        """
+        Инициализирует бот, состояния сообщения, заполняет соответствующие списки товаров и заказов из базы
+        """
         self.bot = bot
         self.products = get_products()
         self.user_states = {}
@@ -31,6 +37,9 @@ class AdminController:
 # Функции для работы с каталогом
 
     def show_catalog(self, message):
+        """
+        Вызывает отображение каталога в чате
+        """
         chat_id = message.chat.id
         print(f"show_catalog called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
 
@@ -54,6 +63,9 @@ class AdminController:
             return
         
     def send_product_info(self, chat_id, product):
+        """"
+        Вызывает отображение информации о товаре в чате
+        """
         if not product.is_active:
             #написать клавиатуру и функцию для возврата в активное состояние
             self.bot.send_message(chat_id, f"Название: {product.name}\nОписание: {product.description}\nПоследняя цена: {product.price} ₽\n\nТовар снят с продажи")
@@ -93,6 +105,9 @@ class AdminController:
             self.bot.send_message(chat_id, text, parse_mode="HTML", reply_markup=keyboards.generate_product_keyboard(product))
     
     def translate_attribute(self, attribute_ru):
+        """
+        Возвращает имя переменной класса, соответствующее имени атрибута товара
+        """
         translation = {
             'Название': 'name',
             'Цена': 'price',
@@ -103,6 +118,9 @@ class AdminController:
         return translation.get(attribute_ru)
     
     def update_attribute_value(self, message, product_id, attribute_ru, new_value):
+        """"
+        Меняет значение атрибута товара в чате и в базе
+        """
         chat_id = message.chat.id
         state_data = self.user_states.get(chat_id)
         product = next((p for p in self.products if p.id == product_id), None)
@@ -126,6 +144,9 @@ class AdminController:
 
 
     def handle_new_image(self, message):
+        """
+        Обрабатывает загрузку фото
+        """
         chat_id = message.chat.id
         state_data = self.user_states.get(chat_id)
         if state_data and state_data.get('state') == 1:
@@ -151,6 +172,9 @@ class AdminController:
                 self.bot.send_message(chat_id, "Ошибка: Товар не выбран")
 
     def handle_attribute_value(self, message):
+        """
+        Обрабатывает входное значение для атрибута товара
+        """
         chat_id = message.chat.id
         state_data = self.user_states.get(chat_id)
         if state_data and state_data.get('state') == 1:
@@ -174,6 +198,9 @@ class AdminController:
             self.bot.send_message(chat_id, "Ошибка: Нет текущего состояния редактирования.")
 
     def handle_edit_attribute(self, message):
+        """
+        Обрабатывает изменение атрибута товара
+        """
         chat_id = message.chat.id
         print(f"handle_edit_attribute called for chat_id: {chat_id}, state: {self.user_states.get(chat_id)}")
         state_data = self.user_states.get(chat_id)
@@ -215,6 +242,9 @@ class AdminController:
                     # self.user_states.pop(chat_id, None) #Очищаем состояние при ошибке
 
     def handle_next_edit(self, message):
+        """
+        Обрабатывает выбор администратора продолжать или выйти из редактирования товара
+        """
         chat_id = message.chat.id
         state_data = self.user_states.get(chat_id)
         if state_data and state_data.get('state') == 1:
@@ -237,6 +267,9 @@ class AdminController:
             self.bot.send_message(chat_id, "Ошибка: Нет текущего состояния редактирования.")
 
     def handle_add_product(self, message):
+        """"
+        Обрабатывает ввод информации для нового товара
+        """
         chat_id = message.chat.id
         print(f"handle_add_product called for chat_id: {chat_id}, state: {self.user_states.get(chat_id, {}).get('state')}")
         if chat_id not in self.user_states:
@@ -271,6 +304,9 @@ class AdminController:
                 self.bot.register_next_step_handler(message, self.handle_add_product)  # Рекурсивный вызов
 
     def handle_photo_upload(self, message):
+        """
+        Обрабатывает отправку администратором фотографии и записывает новый товар в базу
+        """
         chat_id = message.chat.id
         print(f"handle_photo_upload called for chat_id: {chat_id}, state: {self.user_states.get(chat_id, {}).get('state')}")
         # Получаем состояние пользователя
@@ -303,6 +339,16 @@ class AdminController:
             self.bot.send_message(chat_id, f"Ошибка при добавлении товара: {e}")
 
     def handle_callback(self, call):
+        """
+        Обрабатывает callback-запросы от Telegram при нажатии инлайн-кнопок.
+
+        Разбирает callback-данные и выполняет соответствующие действия, 
+        связанные с добавлением, удалением и изменением товаров в каталоге, 
+        изменением статуса заказа, а также переходом в каталог.
+
+        :param call: Объект callback-запроса Telegram.
+        :type call: telegram.CallbackQuery
+        """
         chat_id = call.message.chat.id
         callback_data = call.data
         state_data = self.user_states.get(chat_id, {})
@@ -389,6 +435,9 @@ class AdminController:
     # Функции для работы с заказами
 
     def send_order_info(self, order, chat_id):
+        '''
+        Выводит в чат информацию о заказе
+        '''
         order_items = get_order_items(order.id)
         if order_items:
             items_str = ""
@@ -414,6 +463,9 @@ class AdminController:
 
 
     def show_new_orders(self, message):
+        '''
+        Вызывает отображение новых заказов в чате
+        '''
         chat_id = message.chat.id
         new_orders = get_orders(status=OrderStatus.PROCESSING.value)
         if new_orders:
@@ -423,6 +475,9 @@ class AdminController:
             self.bot.send_message(chat_id, "Нет новых заказов")
 
     def show_in_progress_orders(self, message):
+        '''
+        Вызывает отображение  в чате заказов, принятых в работу
+        '''
         chat_id = message.chat.id
         self.all_orders = get_orders()
         in_progress_orders = [order for order in self.all_orders
@@ -434,6 +489,9 @@ class AdminController:
             self.bot.send_message(chat_id, "Нет заказов в работе")
 
     def show_completed_orders(self, message):
+        '''
+        Вызывает отображение выполненных заказов в чате
+        '''
         chat_id = message.chat.id
         completed_orders = get_orders(status=OrderStatus.RECEIVED.value)
         if completed_orders:
@@ -443,6 +501,9 @@ class AdminController:
             self.bot.send_message(chat_id, "Нет выполненных заказов")
 
     def find_order_by_id(self, order_id):
+        '''
+        Производит поиск заказа по его номеру
+        '''
         self.all_orders = get_orders()
         for order in self.all_orders:
             if order.id == order_id:
@@ -450,6 +511,9 @@ class AdminController:
         return None
 
     def handle_change_status(self, call):
+        '''
+        Изменяет статус заказа в чате и в базе
+        '''
         chat_id = call.message.chat.id
         callback_data = call.data
         print(f"Callback query received: Chat ID: {chat_id} Callback Data: {callback_data}")
