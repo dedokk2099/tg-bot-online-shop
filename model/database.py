@@ -17,9 +17,9 @@ def get_engine():
 
 # Запускается база
 #Подлежит комментированию
-engine = get_engine()
+# engine = get_engine()
 #Подлежит раскомментированию
-# engine = create_engine('sqlite:///model/shop.db')
+engine = create_engine('sqlite:///model/shop.db')
 # Активируется сессия для взаимодействия с базой
 Session = sessionmaker(bind=engine)
 session = Session()

@@ -221,7 +221,7 @@ def get_base_orders():
             order.total_sum
             )
         orders_list.append(exist_order)
-    print(orders_list)
+    # print(orders_list)
     return orders_list
 
 def get_order_items(order_id):

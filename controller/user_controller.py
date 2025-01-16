@@ -13,6 +13,7 @@ from model.orders import add_new_order, get_orders, get_order_items, OrderStatus
 from model.products import Product, get_products
 from model.user import User
 from model.pickup_points import pickup_points
+from view.bot import payment_token
 
 class UserController:
     '''
@@ -476,9 +477,9 @@ class UserController:
         :param text: Описание заказа, которое будет показано пользователю в счете на оплату.
         :type text: str
         """
-        payment_token = "1744374395:TEST:4cbc130e8b83d35866cf" # тестовый токен пеймастера
+        token = payment_token
         user = self.users.get(chat_id)
-        msg = self.bot.send_invoice(chat_id, title="Заказ", description=text, provider_token=payment_token, currency='rub', prices=prices, invoice_payload=f"Платёж для пользователя {user.id} на сумму {user.calculate_total_sum()} ₽ проведён")
+        msg = self.bot.send_invoice(chat_id, title="Заказ", description=text, provider_token=token, currency='rub', prices=prices, invoice_payload=f"Платёж для пользователя {user.id} на сумму {user.calculate_total_sum()} ₽ проведён")
         self.user_states[chat_id]["chat_message_ids"].append(msg.message_id)
 
 
