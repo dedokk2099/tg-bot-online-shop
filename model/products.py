@@ -1,5 +1,8 @@
 import uuid
-import model.database as database
+import logging
+
+from model import database
+
 
 class Product:
     """
@@ -20,12 +23,15 @@ class Product:
     :ivar is_active: Статус активности товара (True - активен, False - неактивен).
     :vartype is_active: bool
     """
-    def __init__(self, name, price, description, stock_quantity, image, is_active = None, id = None):
-        '''
+
+    def __init__(
+        self, name, price, description, stock_quantity, image, is_active=None, id=None
+    ):
+        """
         Инициализирует новый объект Product. Записывает атрибуты товара в поля класса.
         При создании нового товара часть атрибутов принимают стандартное значение и генерируется уникальный идентификатор.
-        '''
-        if id == None:
+        """
+        if id is None:
             self.id = str(uuid.uuid4())
         else:
             self.id = id
@@ -40,8 +46,8 @@ class Product:
         except ValueError:
             self.stock_quantity = 0
         self.image = image
-        
-        if is_active == None:
+
+        if is_active is None:
             self.is_active = True
         else:
             self.is_active = is_active
@@ -49,21 +55,32 @@ class Product:
     def __repr__(self):
         return f"Product(id={self.id}, name={self.name}, price={self.price})"
 
-class DuplicateProductIdError(Exception): # исключение при дублировании ID
+
+class DuplicateProductIdError(Exception):  # исключение при дублировании ID
     """
     Исключение, возникающее при дублировании ID товара.
 
     Используется для обработки ситуаций, когда при создании нового
     товара его идентификатор уже существует в базе данных.
     """
+
     pass
 
+
 products = []
-'''
+"""
 Список хранит все существующие товары в виде экземпляров класса Product
 
 :type: list[Product]
-'''
+"""
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+    filename="app.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    encoding="utf-8",
+)
+
 
 def get_products():
     """
@@ -80,15 +97,16 @@ def get_products():
     base_products = database.get_products()
     for item in base_products:
         products.append(Product(**item))
-    #products = [Product(**data) for data in base_products]
+    # products = [Product(**data) for data in base_products]
     return products
 
-def add_new_product(name, price, description, stock_quantity, image):
+
+def add_new_product(name, price, description, stock_quantity, image, chat_id):
     """
     Добавляет новый товар.
 
     Создает новый объект `Product` на основе входных данных,
-    добавляет его в базу данных и проверяет на наличие дубликатов, 
+    добавляет его в базу данных и проверяет на наличие дубликатов,
     после чего добавляет товар в список и возвращает его.
 
     :param name: Наименование товара
@@ -112,12 +130,17 @@ def add_new_product(name, price, description, stock_quantity, image):
         new_product.price,
         new_product.description,
         new_product.stock_quantity,
-        new_product.image
-        )
+        new_product.image,
+    )
 
     for existing_product in products:
         if existing_product.id == new_product.id:
-            raise DuplicateProductIdError(f"Продукт с ID '{existing_product.id}' уже существует, и это невероятно, ведь мы используем UUID!")
+            raise DuplicateProductIdError(
+                f"Продукт с ID '{existing_product.id}' уже существует, и это невероятно, ведь мы используем UUID!"
+            )
     products.append(new_product)
+    logger.info(
+        f"Added product: {name} (ID: {new_product.id}) by admin: {chat_id}"
+    )
     print(products)
     return new_product

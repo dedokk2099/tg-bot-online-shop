@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+
+<html lang="ru" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>controller.admin_controller &#8212; документация TG-BOT-ONLINE-SHOP 1.0</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=9ca2116e"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/translations.js?v=5b699b7f"></script>
+    <link rel="index" title="Алфавитный указатель" href="../../genindex.html" />
+    <link rel="search" title="Поиск" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Исходный код controller.admin_controller</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">io</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">uuid</span>
+
+<span class="c1"># для экранирования html символов</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">html</span><span class="w"> </span><span class="kn">import</span> <span class="n">escape</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">requests</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">telebot</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">PIL</span><span class="w"> </span><span class="kn">import</span> <span class="n">Image</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">model</span><span class="w"> </span><span class="kn">import</span> <span class="n">database</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">model.orders</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeliveryType</span><span class="p">,</span> <span class="n">OrderStatus</span><span class="p">,</span> <span class="n">get_order_items</span><span class="p">,</span> <span class="n">get_orders</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">model.products</span><span class="w"> </span><span class="kn">import</span> <span class="n">add_new_product</span><span class="p">,</span> <span class="n">get_products</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">view</span><span class="w"> </span><span class="kn">import</span> <span class="n">keyboards</span>
+
+<span class="n">PHOTO_FOLDER</span> <span class="o">=</span> <span class="s2">&quot;model/product_photos&quot;</span>
+<span class="c1"># Создаем папку для хранения фото, если ее нет</span>
+<span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">PHOTO_FOLDER</span><span class="p">):</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">PHOTO_FOLDER</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="AdminController">
+<a class="viewcode-back" href="../../controller.html#controller.admin_controller.AdminController">[документация]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">AdminController</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Отвечает за работу бота в части администратора</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bot</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Инициализирует бот, состояния сообщения, заполняет соответствующие списки товаров и заказов из базы</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bot</span> <span class="o">=</span> <span class="n">bot</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">products</span> <span class="o">=</span> <span class="n">get_products</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">user_states</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">order_message_map</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">product_message_map</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">all_orders</span> <span class="o">=</span> <span class="n">get_orders</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">confirmation_message_id</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+        <span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span>
+            <span class="n">filename</span><span class="o">=</span><span class="s2">&quot;app.log&quot;</span><span class="p">,</span>
+            <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">,</span>
+            <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">%(asctime)s</span><span class="s2"> - </span><span class="si">%(name)s</span><span class="s2"> - </span><span class="si">%(levelname)s</span><span class="s2"> - </span><span class="si">%(message)s</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Функции для работы с каталогом</span>
+
+<div class="viewcode-block" id="AdminController.show_catalog">
+<a class="viewcode-back" href="../../controller.html#controller.admin_controller.AdminController.show_catalog">[документация]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">show_catalog</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Вызывает отображение каталога в чате</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">chat_id</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">id</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;show_catalog called for chat_id: </span><span class="si">{</span><span class="n">chat_id</span><span class="si">}</span><span class="s2">, state: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">chat_id</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
+        <span class="n">active_products</span> <span class="o">=</span> <span class="p">[</span><span class="n">product</span> <span class="k">for</span> <span class="n">product</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">products</span> <span class="k">if</span> <span class="n">product</span><span class="o">.</span><span class="n">is_active</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">active_products</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="s2">&quot;Каталог пуст&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
+                <span class="n">message</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                <span class="s2">&quot;Добавить новый товар?&quot;</span><span class="p">,</span>
+                <span class="n">reply_markup</span><span class="o">=</span><span class="n">keyboards</span><span class="o">.</span><span class="n">generate_add_keyboard</span><span class="p">(),</span>
+            <span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="c1"># if not self.products:</span>
+        <span class="c1">#     self.bot.send_message(chat_id, &quot;Каталог пуст&quot;)</span>
+        <span class="c1">#     self.bot.send_message(message.chat.id, &quot;Добавить новый товар?&quot;, reply_markup=keyboards.generate_add_keyboard())</span>
+        <span class="c1">#     return</span>
+
+        <span class="c1"># if message.chat.id not in self.user_states:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="p">[</span><span class="n">message</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">}</span>  <span class="c1"># Начальное состояние</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="p">[</span><span class="n">message</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">id</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;state&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">product</span> <span class="ow">in</span> <span class="n">active_products</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">send_product_info</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="n">product</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
+                <span class="n">message</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                <span class="s2">&quot;Добавить новый товар?&quot;</span><span class="p">,</span>
+                <span class="n">reply_markup</span><span class="o">=</span><span class="n">keyboards</span><span class="o">.</span><span class="n">generate_add_keyboard</span><span class="p">(),</span>
+            <span class="p">)</span>
+            <span class="k">return</span></div>
+
+
+<div class="viewcode-block" id="AdminController.send_product_info">
+<a class="viewcode-back" href="../../controller.html#controller.admin_controller.AdminController.send_product_info">[документация]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">send_product_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">chat_id</span><span class="p">,</span> <span class="n">product</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; &quot;</span>
+<span class="sd">        Вызывает отображение информации о товаре в чате</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">product</span><span class="o">.</span><span class="n">is_active</span><span class="p">:</span>
+            <span class="c1"># написать клавиатуру и функцию для возврата в активное состояние</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
+                <span class="n">chat_id</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">&quot;Название: </span><span class="si">{</span><span class="n">product</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="se">\n</span><span class="s2">Описание: </span><span class="si">{</span><span class="n">product</span><span class="o">.</span><span class="n">description</span><span class="si">}</span><span class="se">\n</span><span class="s2">Последняя цена: </span><span class="si">{</span><span class="n">product</span><span class="o">.</span><span class="n">price</span><span class="si">}</span><span class="s2"> ₽</span><span class="se">\n\n</span><span class="s2">Товар снят с продажи&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="n">text</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&lt;b&gt;</span><span class="si">{</span><span class="n">product</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&lt;/b&gt;</span><span class="se">\n</span><span class="s2">Стоимость: </span><span class="si">{</span><span class="n">product</span><span class="o">.</span><span class="n">price</span><span class="si">}</span><span class="s2"> ₽</span><span class="se">\n</span><span class="s2">Описание: </span><span class="si">{</span><span class="n">product</span><span class="o">.</span><span class="n">description</span><span class="si">}</span><span class="se">\n</span><span class="s2">Количество на складе: </span><span class="si">{</span><span class="n">product</span><span class="o">.</span><span class="n">stock_quantity</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">product</span><span class="o">.</span><span class="n">image</span><span class="p">:</span>
+                <span class="n">image_url_or_path</span> <span class="o">=</span> <span class="n">product</span><span class="o">.</span><span class="n">image</span>
+                <span class="c1"># Проверяем, является ли image URL или локальным путем</span>
+                <span class="k">if</span> <span class="n">image_url_or_path</span><span class="o">.</span><span class="n">startswith</span><span class="p">((</span><span class="s2">&quot;http://&quot;</span><span class="p">,</span> <span class="s2">&quot;https://&quot;</span><span class="p">)):</span>
+                    <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">image_url_or_path</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+                    <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
+                    <span class="n">image</span> <span class="o">=</span> <span class="n">Image</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># Если это локальный файл, открываем его</span>
+                    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">image_url_or_path</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+                        <span class="n">image</span> <span class="o">=</span> <span class="n">Image</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+                        <span class="c1"># Копируем изображение в буфер памяти</span>
+                        <span class="n">image_io</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">()</span>
+                        <span class="n">image</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">image_io</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;JPEG&quot;</span><span class="p">)</span>
+                        <span class="n">image_io</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+                <span class="c1"># Уменьшаем размер изображения</span>
+                <span class="n">image</span><span class="o">.</span><span class="n">thumbnail</span><span class="p">((</span><span class="mi">200</span><span class="p">,</span> <span class="mi">200</span><span class="p">))</span>
+                <span class="n">image_io</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">()</span>
+                <span class="n">image</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">image_io</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;JPEG&quot;</span><span class="p">)</span>
+                <span class="n">image_io</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_photo</span><span class="p">(</span>
+                    <span class="n">chat_id</span><span class="p">,</span>
+                    <span class="n">image_io</span><span class="p">,</span>
+                    <span class="n">caption</span><span class="o">=</span><span class="n">text</span><span class="p">,</span>
+                    <span class="n">parse_mode</span><span class="o">=</span><span class="s2">&quot;HTML&quot;</span><span class="p">,</span>
+                    <span class="n">reply_markup</span><span class="o">=</span><span class="n">keyboards</span><span class="o">.</span><span class="n">generate_product_keyboard</span><span class="p">(</span><span class="n">product</span><span class="p">),</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
+                    <span class="n">chat_id</span><span class="p">,</span>
+                    <span class="n">text</span><span class="p">,</span>
+                    <span class="n">parse_mode</span><span class="o">=</span><span class="s2">&quot;HTML&quot;</span><span class="p">,</span>
+                    <span class="n">reply_markup</span><span class="o">=</span><span class="n">keyboards</span><span class="o">.</span><span class="n">generate_product_keyboard</span><span class="p">(</span><span class="n">product</span><span class="p">),</span>
+                <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">product_message_map</span><span class="p">[</span><span class="n">product</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">message_id</span>
+        <span class="k">except</span> <span class="n">requests</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">RequestException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
+                <span class="n">chat_id</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Ошибка загрузки изображения для товара </span><span class="si">{</span><span class="n">product</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
+                <span class="n">chat_id</span><span class="p">,</span>
+                <span class="n">text</span><span class="p">,</span>
+                <span class="n">parse_mode</span><span class="o">=</span><span class="s2">&quot;HTML&quot;</span><span class="p">,</span>
+                <span class="n">reply_markup</span><span class="o">=</span><span class="n">keyboards</span><span class="o">.</span><span class="n">generate_product_keyboard</span><span class="p">(</span><span class="n">product</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
+                <span class="n">chat_id</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">&quot;Ошибка при обработке изображения для товара </span><span class="si">{</span><span class="n">product</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
+                <span class="n">chat_id</span><span class="p">,</span>
+                <span class="n">text</span><span class="p">,</span>
+                <span class="n">parse_mode</span><span class="o">=</span><span class="s2">&quot;HTML&quot;</span><span class="p">,</span>
+                <span class="n">reply_markup</span><span class="o">=</span><span class="n">keyboards</span><span class="o">.</span><span class="n">generate_product_keyboard</span><span class="p">(</span><span class="n">product</span><span class="p">),</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AdminController.translate_attribute">
+<a class="viewcode-back" href="../../controller.html#controller.admin_controller.AdminController.translate_attribute">[документация]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">translate_attribute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attribute_ru</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Возвращает имя переменной класса, соответствующее имени атрибута товара</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">translation</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;Название&quot;</span><span class="p">:</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Цена&quot;</span><span class="p">:</span> <span class="s2">&quot;price&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Описание&quot;</span><span class="p">:</span> <span class="s2">&quot;description&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Количество&quot;</span><span class="p">:</span> <span class="s2">&quot;stock_quantity&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Изображение&quot;</span><span class="p">:</span> <span class="s2">&quot;image&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">translation</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">attribute_ru</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AdminController.update_attribute_value">
+<a class="viewcode-back" href="../../controller.html#controller.admin_controller.AdminController.update_attribute_value">[документация]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_attribute_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">product_id</span><span class="p">,</span> <span class="n">attribute_ru</span><span class="p">,</span> <span class="n">new_value</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; &quot;</span>
+<span class="sd">        Меняет значение атрибута товара в чате и в базе</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">chat_id</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">id</span>
+        <span class="n">state_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">chat_id</span><span class="p">)</span>
+        <span class="n">product</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">products</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">product_id</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">product</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="s2">&quot;Ошибка: Товар не найден.&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="n">attribute_en</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">translate_attribute</span><span class="p">(</span><span class="n">attribute_ru</span><span class="p">)</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">product</span><span class="p">,</span> <span class="n">attribute_en</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="n">product</span><span class="p">,</span> <span class="n">attribute_en</span><span class="p">,</span> <span class="n">new_value</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Атрибут &#39;</span><span class="si">{</span><span class="n">attribute_en</span><span class="si">}</span><span class="s2">&#39; не найден у продукта &#39;</span><span class="si">{</span><span class="n">product</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="s2">&quot;attribute&quot;</span> <span class="ow">in</span> <span class="n">state_data</span><span class="p">:</span>
+            <span class="k">del</span> <span class="n">state_data</span><span class="p">[</span><span class="s2">&quot;attribute&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
+            <span class="n">chat_id</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;Атрибут &#39;</span><span class="si">{</span><span class="n">attribute_ru</span><span class="si">}</span><span class="s2">&#39; изменён. Что ещё изменить?&quot;</span><span class="p">,</span>
+            <span class="n">reply_markup</span><span class="o">=</span><span class="n">keyboards</span><span class="o">.</span><span class="n">generate_edit_keyboard</span><span class="p">(),</span>
+        <span class="p">)</span>
+
+        <span class="c1"># изменение атрибута товара в базе данных его названию и id</span>
+        <span class="n">database</span><span class="o">.</span><span class="n">updateItemAttribute</span><span class="p">(</span><span class="n">product_id</span><span class="p">,</span> <span class="n">attribute_en</span><span class="p">,</span> <span class="n">new_value</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Атрибут &#39;</span><span class="si">{</span><span class="n">attribute_en</span><span class="si">}</span><span class="s2">&#39; товара &#39;</span><span class="si">{</span><span class="n">product</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; (ID: </span><span class="si">{</span><span class="n">product_id</span><span class="si">}</span><span class="s2">) обновлен со значения </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2"> на значениe &#39;</span><span class="si">{</span><span class="n">new_value</span><span class="si">}</span><span class="s2">&#39; by admin: </span><span class="si">{</span><span class="n">chat_id</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">register_next_step_handler</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_next_edit</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AdminController.handle_cancel">
+<a class="viewcode-back" href="../../controller.html#controller.admin_controller.AdminController.handle_cancel">[документация]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">handle_cancel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Обрабатывает команду отмены действия пользователя.</span>
+
+<span class="sd">        Отправляет пользователю соответствующее сообщение в зависимости от текущего состояния.</span>
+<span class="sd">        Если состояние равно 1 (редактирование атрибута), предлагает продолжить редактирование с помощью handle_edit_attribute.</span>
+<span class="sd">        Если состояние равно 3 (добавление товара), отменяет добавление товара и сбрасывает состояние в 0.</span>
+<span class="sd">        В остальных случаях отправляет общее сообщение об отмене действия.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">chat_id</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">id</span>
+        <span class="n">state_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">chat_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">state_data</span> <span class="ow">and</span> <span class="n">state_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;state&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="s2">&quot;Действие отменено. Что ещё изменить?&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">register_next_step_handler</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_edit_attribute</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">state_data</span> <span class="ow">and</span> <span class="n">state_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;state&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="p">[</span><span class="n">chat_id</span><span class="p">][</span><span class="s2">&quot;state&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># Reset state</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="s2">&quot;Добавление товара отменено&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="s2">&quot;Дейсвие отменено&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AdminController.handle_new_image">
+<a class="viewcode-back" href="../../controller.html#controller.admin_controller.AdminController.handle_new_image">[документация]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">handle_new_image</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Обрабатывает загрузку фото</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">chat_id</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">id</span>
+        <span class="n">state_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">chat_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">state_data</span> <span class="ow">and</span> <span class="n">state_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;state&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">product_id</span> <span class="o">=</span> <span class="n">state_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;product_id&quot;</span><span class="p">)</span>
+            <span class="n">attribute_ru</span> <span class="o">=</span> <span class="n">state_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;attribute&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">product_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">attribute_ru</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">message</span><span class="o">.</span><span class="n">photo</span><span class="p">:</span>
+                        <span class="n">file_id</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">photo</span><span class="p">[</span>
+                            <span class="o">-</span><span class="mi">1</span>
+                        <span class="p">]</span><span class="o">.</span><span class="n">file_id</span>  <span class="c1"># получаем ID последней фотографии</span>
+                        <span class="n">file_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">get_file</span><span class="p">(</span>
+                            <span class="n">file_id</span>
+                        <span class="p">)</span>  <span class="c1"># Получаем информацию о файле</span>
+                        <span class="n">file_path</span> <span class="o">=</span> <span class="n">file_info</span><span class="o">.</span><span class="n">file_path</span>
+                        <span class="n">image_bytes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">download_file</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span>
+                        <span class="n">filename</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">PHOTO_FOLDER</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">uuid</span><span class="o">.</span><span class="n">uuid4</span><span class="p">()</span><span class="o">.</span><span class="n">hex</span><span class="si">}</span><span class="s2">.jpg&quot;</span><span class="p">)</span>
+                        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">new_image</span><span class="p">:</span>
+                            <span class="n">new_image</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">image_bytes</span><span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">update_attribute_value</span><span class="p">(</span>
+                            <span class="n">message</span><span class="p">,</span> <span class="n">product_id</span><span class="p">,</span> <span class="n">attribute_ru</span><span class="p">,</span> <span class="n">filename</span>
+                        <span class="p">)</span>
+                    <span class="k">elif</span> <span class="n">message</span><span class="o">.</span><span class="n">text</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;/cancel&quot;</span><span class="p">,</span> <span class="s2">&quot;Выход&quot;</span><span class="p">]:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">handle_cancel</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
+                            <span class="n">chat_id</span><span class="p">,</span>
+                            <span class="s2">&quot;Пожалуйста, отправьте изображение.  Или нажмите /cancel для отмены.&quot;</span><span class="p">,</span>
+                        <span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">register_next_step_handler</span><span class="p">(</span>
+                            <span class="n">message</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_new_image</span>
+                        <span class="p">)</span>  <span class="c1"># Рекурсивный вызов</span>
+                <span class="k">except</span> <span class="p">(</span><span class="ne">KeyError</span><span class="p">,</span> <span class="ne">IndexError</span><span class="p">,</span> <span class="ne">AttributeError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Ошибка при обновлении товара: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="s2">&quot;Ошибка: Товар не выбран&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AdminController.handle_attribute_value">
+<a class="viewcode-back" href="../../controller.html#controller.admin_controller.AdminController.handle_attribute_value">[документация]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">handle_attribute_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Обрабатывает входное значение для атрибута товара</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">chat_id</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">id</span>
+        <span class="n">state_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">chat_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">state_data</span> <span class="ow">and</span> <span class="n">state_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;state&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">product_id</span> <span class="o">=</span> <span class="n">state_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;product_id&quot;</span><span class="p">)</span>
+            <span class="n">attribute_ru</span> <span class="o">=</span> <span class="n">state_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;attribute&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">product_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">attribute_ru</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">message</span><span class="o">.</span><span class="n">text</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;/cancel&quot;</span><span class="p">,</span> <span class="s2">&quot;Выход&quot;</span><span class="p">]:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">handle_cancel</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">attribute_ru</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;Цена&quot;</span><span class="p">,</span> <span class="s2">&quot;Количество&quot;</span><span class="p">]:</span>
+                            <span class="n">new_value</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">message</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="n">new_value</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">text</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">update_attribute_value</span><span class="p">(</span>
+                            <span class="n">message</span><span class="p">,</span> <span class="n">product_id</span><span class="p">,</span> <span class="n">attribute_ru</span><span class="p">,</span> <span class="n">new_value</span>
+                        <span class="p">)</span>
+                    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
+                            <span class="n">chat_id</span><span class="p">,</span> <span class="s2">&quot;Некорректный формат. Пожалуйста, введите число&quot;</span>
+                        <span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">register_next_step_handler</span><span class="p">(</span>
+                            <span class="n">message</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_attribute_value</span>
+                        <span class="p">)</span>  <span class="c1"># Рекурсивный вызов</span>
+                    <span class="k">except</span> <span class="p">(</span><span class="ne">KeyError</span><span class="p">,</span> <span class="ne">IndexError</span><span class="p">,</span> <span class="ne">AttributeError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
+                            <span class="n">chat_id</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Ошибка при обновлении товара: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span>
+                        <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="s2">&quot;Ошибка: Недостаточно данных.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
+                <span class="n">chat_id</span><span class="p">,</span> <span class="s2">&quot;Ошибка: Нет текущего состояния редактирования.&quot;</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AdminController.handle_edit_attribute">
+<a class="viewcode-back" href="../../controller.html#controller.admin_controller.AdminController.handle_edit_attribute">[документация]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">handle_edit_attribute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Обрабатывает изменение атрибута товара</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">chat_id</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">id</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;handle_edit_attribute called for chat_id: </span><span class="si">{</span><span class="n">chat_id</span><span class="si">}</span><span class="s2">, state: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">chat_id</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="n">state_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">chat_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">state_data</span> <span class="ow">and</span> <span class="n">state_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;state&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">message</span><span class="o">.</span><span class="n">text</span> <span class="o">==</span> <span class="s2">&quot;Выход&quot;</span><span class="p">:</span>
+                <span class="k">if</span> <span class="s2">&quot;product_id&quot;</span> <span class="ow">in</span> <span class="n">state_data</span><span class="p">:</span>
+                    <span class="n">product_id</span> <span class="o">=</span> <span class="n">state_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;product_id&quot;</span><span class="p">)</span>
+                    <span class="n">product</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span>
+                        <span class="p">(</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">products</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">product_id</span><span class="p">),</span> <span class="kc">None</span>
+                    <span class="p">)</span>
+                    <span class="k">del</span> <span class="n">state_data</span><span class="p">[</span><span class="s2">&quot;product_id&quot;</span><span class="p">]</span>
+                <span class="k">if</span> <span class="s2">&quot;attribute&quot;</span> <span class="ow">in</span> <span class="n">state_data</span><span class="p">:</span>
+                    <span class="k">del</span> <span class="n">state_data</span><span class="p">[</span><span class="s2">&quot;attribute&quot;</span><span class="p">]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
+                    <span class="n">chat_id</span><span class="p">,</span>
+                    <span class="sa">f</span><span class="s2">&quot;Редактирование товара </span><span class="si">{</span><span class="n">product</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> отменено&quot;</span><span class="p">,</span>
+                    <span class="n">reply_markup</span><span class="o">=</span><span class="n">keyboards</span><span class="o">.</span><span class="n">generate_admin_keyboard</span><span class="p">(),</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">product_id</span> <span class="o">=</span> <span class="n">state_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;product_id&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">product_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="s2">&quot;Ошибка: Товар не выбран&quot;</span><span class="p">)</span>
+                    <span class="k">return</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">product</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span>
+                        <span class="p">(</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">products</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">product_id</span><span class="p">),</span> <span class="kc">None</span>
+                    <span class="p">)</span>
+                    <span class="k">if</span> <span class="n">product</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="s2">&quot;Ошибка: Товар не найден.&quot;</span><span class="p">)</span>
+                        <span class="k">return</span>
+
+                    <span class="n">attribute_ru</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">text</span>
+                    <span class="k">if</span> <span class="n">attribute_ru</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;Название&quot;</span><span class="p">,</span> <span class="s2">&quot;Цена&quot;</span><span class="p">,</span> <span class="s2">&quot;Описание&quot;</span><span class="p">,</span> <span class="s2">&quot;Количество&quot;</span><span class="p">]:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="p">[</span><span class="n">chat_id</span><span class="p">][</span><span class="s2">&quot;attribute&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">attribute_ru</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
+                            <span class="n">chat_id</span><span class="p">,</span>
+                            <span class="sa">f</span><span class="s2">&quot;Введите новое значение &#39;</span><span class="si">{</span><span class="n">attribute_ru</span><span class="si">}</span><span class="s2">&#39; для товара &#39;</span><span class="si">{</span><span class="n">product</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;:&quot;</span><span class="p">,</span>
+                        <span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">register_next_step_handler</span><span class="p">(</span>
+                            <span class="n">message</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_attribute_value</span>
+                        <span class="p">)</span>
+                    <span class="k">elif</span> <span class="n">attribute_ru</span> <span class="o">==</span> <span class="s2">&quot;Изображение&quot;</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="p">[</span><span class="n">chat_id</span><span class="p">][</span><span class="s2">&quot;attribute&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">attribute_ru</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
+                            <span class="n">message</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                            <span class="sa">f</span><span class="s2">&quot;Отправьте новое изображение для товара &#39;</span><span class="si">{</span><span class="n">product</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;:&quot;</span><span class="p">,</span>
+                        <span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">register_next_step_handler</span><span class="p">(</span>
+                            <span class="n">message</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_new_image</span>
+                        <span class="p">)</span>  <span class="c1"># вызов функции обработки изображения</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="s2">&quot;Некорректный атрибут.&quot;</span><span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">register_next_step_handler</span><span class="p">(</span>
+                            <span class="n">message</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_edit_attribute</span>
+                        <span class="p">)</span>
+
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Ошибка: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+                    <span class="c1"># self.user_states.pop(chat_id, None) #Очищаем состояние при ошибке</span>
+
+<div class="viewcode-block" id="AdminController.handle_next_edit">
+<a class="viewcode-back" href="../../controller.html#controller.admin_controller.AdminController.handle_next_edit">[документация]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">handle_next_edit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Обрабатывает выбор администратора продолжать или выйти из редактирования товара</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">chat_id</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">id</span>
+        <span class="n">state_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">chat_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">state_data</span> <span class="ow">and</span> <span class="n">state_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;state&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">message</span><span class="o">.</span><span class="n">text</span> <span class="o">==</span> <span class="s2">&quot;Выход&quot;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="s2">&quot;product_id&quot;</span> <span class="ow">in</span> <span class="n">state_data</span><span class="p">:</span>
+                        <span class="n">product_id</span> <span class="o">=</span> <span class="n">state_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;product_id&quot;</span><span class="p">)</span>
+                        <span class="n">product</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span>
+                            <span class="p">(</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">products</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">product_id</span><span class="p">),</span> <span class="kc">None</span>
+                        <span class="p">)</span>
+                        <span class="k">del</span> <span class="n">state_data</span><span class="p">[</span><span class="s2">&quot;product_id&quot;</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="s2">&quot;attribute&quot;</span> <span class="ow">in</span> <span class="n">state_data</span><span class="p">:</span>
+                        <span class="k">del</span> <span class="n">state_data</span><span class="p">[</span><span class="s2">&quot;attribute&quot;</span><span class="p">]</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
+                        <span class="n">chat_id</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Редактирование товара </span><span class="si">{</span><span class="n">product</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> завершено&quot;</span>
+                    <span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
+                        <span class="n">chat_id</span><span class="p">,</span>
+                        <span class="s2">&quot;Обновляю каталог...&quot;</span><span class="p">,</span>
+                        <span class="n">reply_markup</span><span class="o">=</span><span class="n">keyboards</span><span class="o">.</span><span class="n">generate_admin_keyboard</span><span class="p">(),</span>
+                    <span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">show_catalog</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">handle_edit_attribute</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Ошибка: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
+                <span class="n">chat_id</span><span class="p">,</span> <span class="s2">&quot;Ошибка: Нет текущего состояния редактирования.&quot;</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AdminController.handle_add_product">
+<a class="viewcode-back" href="../../controller.html#controller.admin_controller.AdminController.handle_add_product">[документация]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">handle_add_product</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; &quot;</span>
+<span class="sd">        Обрабатывает ввод информации для нового товара</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">chat_id</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">id</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;handle_add_product called for chat_id: </span><span class="si">{</span><span class="n">chat_id</span><span class="si">}</span><span class="s2">, state: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span><span class="w"> </span><span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;state&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">chat_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="p">[</span><span class="n">chat_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="s2">&quot;name&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="p">[</span><span class="n">chat_id</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="p">[</span><span class="n">chat_id</span><span class="p">][</span><span class="s2">&quot;name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">text</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="s2">&quot;Введите цену:&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">register_next_step_handler</span><span class="p">(</span>
+                <span class="n">message</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_add_product</span>
+            <span class="p">)</span>  <span class="c1"># Рекурсивный вызов для следующего шага</span>
+        <span class="k">elif</span> <span class="s2">&quot;price&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="p">[</span><span class="n">chat_id</span><span class="p">]:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">price</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">message</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>  <span class="c1"># Проверка на число</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="p">[</span><span class="n">chat_id</span><span class="p">][</span><span class="s2">&quot;price&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">text</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="s2">&quot;Введите описание:&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">register_next_step_handler</span><span class="p">(</span>
+                    <span class="n">message</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_add_product</span>
+                <span class="p">)</span>  <span class="c1"># Рекурсивный вызов</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
+                    <span class="n">chat_id</span><span class="p">,</span>
+                    <span class="s2">&quot;Некорректный формат цены. Пожалуйста, введите целое число.&quot;</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">register_next_step_handler</span><span class="p">(</span>
+                    <span class="n">message</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_add_product</span>
+                <span class="p">)</span>  <span class="c1"># Рекурсивный вызов</span>
+        <span class="k">elif</span> <span class="s2">&quot;description&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="p">[</span><span class="n">chat_id</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="p">[</span><span class="n">chat_id</span><span class="p">][</span><span class="s2">&quot;description&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">text</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="s2">&quot;Введите количество товара на складе:&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">register_next_step_handler</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_add_product</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="s2">&quot;stock_quantity&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="p">[</span><span class="n">chat_id</span><span class="p">]:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">stock_quantity</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">message</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>  <span class="c1"># Проверка на число</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="p">[</span><span class="n">chat_id</span><span class="p">][</span><span class="s2">&quot;stock_quantity&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">text</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="s2">&quot;Теперь отправьте фото товара&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;фото отправится сейчас for chat_id: </span><span class="si">{</span><span class="n">chat_id</span><span class="si">}</span><span class="s2">, state: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">chat_id</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="p">[</span><span class="n">chat_id</span><span class="p">][</span>
+                    <span class="s2">&quot;state&quot;</span>
+                <span class="p">]</span> <span class="o">=</span> <span class="mi">3</span>  <span class="c1"># Переходим к шагу загрузки изображения</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;состояние изменено for chat_id: </span><span class="si">{</span><span class="n">chat_id</span><span class="si">}</span><span class="s2">, state: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">chat_id</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">register_next_step_handler</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_photo_upload</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
+                    <span class="n">chat_id</span><span class="p">,</span>
+                    <span class="s2">&quot;Некорректный формат количества. Пожалуйста, введите целое число.&quot;</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">register_next_step_handler</span><span class="p">(</span>
+                    <span class="n">message</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_add_product</span>
+                <span class="p">)</span>  <span class="c1"># Рекурсивный вызов</span></div>
+
+
+<div class="viewcode-block" id="AdminController.handle_photo_upload">
+<a class="viewcode-back" href="../../controller.html#controller.admin_controller.AdminController.handle_photo_upload">[документация]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">handle_photo_upload</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Обрабатывает отправку администратором фотографии.</span>
+
+<span class="sd">        Если происходит добавление товара, записывает новый товар с полученным фото в базу,</span>
+<span class="sd">        в противном случае сообщает об отсутствии необходимости в фото на данном шаге.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">chat_id</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">id</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;handle_photo_upload called for chat_id: </span><span class="si">{</span><span class="n">chat_id</span><span class="si">}</span><span class="s2">, state: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span><span class="w"> </span><span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;state&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="c1"># Получаем состояние пользователя</span>
+        <span class="n">user_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">chat_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">user_state</span> <span class="ow">or</span> <span class="n">user_state</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;state&quot;</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>  <span class="c1"># Проверяем состояние</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="s2">&quot;Фото не требуется на этом шаге.&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">message</span><span class="o">.</span><span class="n">photo</span><span class="p">:</span>
+                <span class="c1"># Скачиваем фото</span>
+                <span class="n">photo</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">photo</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">file_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">get_file</span><span class="p">(</span>
+                    <span class="n">photo</span><span class="o">.</span><span class="n">file_id</span>
+                <span class="p">)</span>  <span class="c1"># Получаем информацию о файле</span>
+                <span class="n">photo_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">PHOTO_FOLDER</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">uuid</span><span class="o">.</span><span class="n">uuid4</span><span class="p">()</span><span class="o">.</span><span class="n">hex</span><span class="si">}</span><span class="s2">.jpg&quot;</span><span class="p">)</span>
+
+                <span class="c1"># Загружаем файл и сохраняем его</span>
+                <span class="n">downloaded_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">download_file</span><span class="p">(</span><span class="n">file_info</span><span class="o">.</span><span class="n">file_path</span><span class="p">)</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">photo_path</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">new_file</span><span class="p">:</span>
+                    <span class="n">new_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">downloaded_file</span><span class="p">)</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="c1"># Добавляем фото к новому товару</span>
+                    <span class="n">new_product</span> <span class="o">=</span> <span class="n">add_new_product</span><span class="p">(</span>
+                        <span class="n">user_state</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">],</span>
+                        <span class="n">user_state</span><span class="p">[</span><span class="s2">&quot;price&quot;</span><span class="p">],</span>
+                        <span class="n">user_state</span><span class="p">[</span><span class="s2">&quot;description&quot;</span><span class="p">],</span>
+                        <span class="n">user_state</span><span class="p">[</span><span class="s2">&quot;stock_quantity&quot;</span><span class="p">],</span>
+                        <span class="n">photo_path</span><span class="p">,</span>
+                        <span class="n">chat_id</span><span class="p">,</span>
+                    <span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="s2">&quot;Товар успешно добавлен:&quot;</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">send_product_info</span><span class="p">(</span>
+                        <span class="n">chat_id</span><span class="p">,</span>
+                        <span class="nb">next</span><span class="p">(</span>
+                            <span class="p">(</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">products</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">new_product</span><span class="o">.</span><span class="n">id</span><span class="p">),</span> <span class="kc">None</span>
+                        <span class="p">),</span>
+                    <span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
+                        <span class="n">message</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                        <span class="s2">&quot;Добавить новый товар или обновить каталог?&quot;</span><span class="p">,</span>
+                        <span class="n">reply_markup</span><span class="o">=</span><span class="n">keyboards</span><span class="o">.</span><span class="n">generate_add_or_update_keyboard</span><span class="p">(),</span>
+                    <span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="p">[</span><span class="n">chat_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">}</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Ошибка при добавлении товара: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">message</span><span class="o">.</span><span class="n">text</span> <span class="o">==</span> <span class="s2">&quot;/cancel&quot;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">handle_cancel</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
+                    <span class="n">chat_id</span><span class="p">,</span>
+                    <span class="s2">&quot;Пожалуйста, отправьте изображение.  Или нажмите /cancel для отмены.&quot;</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">register_next_step_handler</span><span class="p">(</span>
+                    <span class="n">message</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_photo_upload</span>
+                <span class="p">)</span>  <span class="c1"># Рекурсивный вызов</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Ошибка при загрузке фото: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AdminController.handle_callback">
+<a class="viewcode-back" href="../../controller.html#controller.admin_controller.AdminController.handle_callback">[документация]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">handle_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">call</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Обрабатывает callback-запросы от Telegram при нажатии инлайн-кнопок.</span>
+
+<span class="sd">        Разбирает callback-данные и выполняет соответствующие действия,</span>
+<span class="sd">        связанные с добавлением, удалением и изменением товаров в каталоге,</span>
+<span class="sd">        изменением статуса заказа, а также переходом в каталог.</span>
+
+<span class="sd">        :param call: Объект callback-запроса Telegram.</span>
+<span class="sd">        :type call: telegram.CallbackQuery</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">chat_id</span> <span class="o">=</span> <span class="n">call</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">id</span>
+        <span class="n">callback_data</span> <span class="o">=</span> <span class="n">call</span><span class="o">.</span><span class="n">data</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Callback query received: Chat ID: </span><span class="si">{</span><span class="n">chat_id</span><span class="si">}</span><span class="s2"> Callback Data: </span><span class="si">{</span><span class="n">callback_data</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;handle_callback called for chat_id: </span><span class="si">{</span><span class="n">chat_id</span><span class="si">}</span><span class="s2">, state: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">chat_id</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
+        <span class="n">data</span> <span class="o">=</span> <span class="n">callback_data</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;edit&quot;</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;handle_callback (edit) called for chat_id: </span><span class="si">{</span><span class="n">chat_id</span><span class="si">}</span><span class="s2">, state: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">chat_id</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="n">product_id</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">product_to_edit</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">products</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">product_id</span><span class="p">),</span> <span class="kc">None</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="p">[</span><span class="n">chat_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;product_id&quot;</span><span class="p">:</span> <span class="n">product_id</span><span class="p">}</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;изменили состояние chat_id: </span><span class="si">{</span><span class="n">chat_id</span><span class="si">}</span><span class="s2">, state: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">chat_id</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
+                <span class="n">chat_id</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">&quot;Редактируем товар </span><span class="si">{</span><span class="n">product_to_edit</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="se">\n</span><span class="s2">Стоимость: </span><span class="si">{</span><span class="n">product_to_edit</span><span class="o">.</span><span class="n">price</span><span class="si">}</span><span class="s2"> ₽</span><span class="se">\n</span><span class="s2">Описание: </span><span class="si">{</span><span class="n">product_to_edit</span><span class="o">.</span><span class="n">description</span><span class="si">}</span><span class="se">\n</span><span class="s2">Количество на складе: </span><span class="si">{</span><span class="n">product_to_edit</span><span class="o">.</span><span class="n">stock_quantity</span><span class="si">}</span><span class="se">\n\n</span><span class="s2">Что изменить?&quot;</span><span class="p">,</span>
+                <span class="n">reply_markup</span><span class="o">=</span><span class="n">keyboards</span><span class="o">.</span><span class="n">generate_edit_keyboard</span><span class="p">(),</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">register_next_step_handler</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_edit_attribute</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;delete&quot;</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;handle_callback (delete) called for chat_id: </span><span class="si">{</span><span class="n">chat_id</span><span class="si">}</span><span class="s2">, state: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">chat_id</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">product_id</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">product_to_delete</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span>
+                    <span class="p">(</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">products</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">product_id</span><span class="p">),</span> <span class="kc">None</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="n">product_to_delete</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">answer_callback_query</span><span class="p">(</span><span class="n">call</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s2">&quot;Товар не найден!&quot;</span><span class="p">)</span>
+                    <span class="k">return</span>
+                <span class="n">product_name</span> <span class="o">=</span> <span class="n">product_to_delete</span><span class="o">.</span><span class="n">name</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
+                    <span class="n">chat_id</span><span class="p">,</span>
+                    <span class="sa">f</span><span class="s2">&quot;Вы подтверждаете удаление товара &lt;b&gt;</span><span class="si">{</span><span class="n">product_name</span><span class="si">}</span><span class="s2">&lt;/b&gt;?&quot;</span><span class="p">,</span>
+                    <span class="n">parse_mode</span><span class="o">=</span><span class="s2">&quot;HTML&quot;</span><span class="p">,</span>
+                    <span class="n">reply_markup</span><span class="o">=</span><span class="n">keyboards</span><span class="o">.</span><span class="n">generate_delete_keyboard</span><span class="p">(</span><span class="n">product_id</span><span class="p">),</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">confirmation_message_id</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">message_id</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Ошибка при удалении товара: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">answer_callback_query</span><span class="p">(</span>
+                    <span class="n">call</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s2">&quot;Ошибка при удалении товара.&quot;</span>
+                <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;confirm_delete&quot;</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;handle_callback (confirm_delet) called for chat_id: </span><span class="si">{</span><span class="n">chat_id</span><span class="si">}</span><span class="s2">, state: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">chat_id</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="n">product_id</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">product_to_delete</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">products</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">product_id</span><span class="p">),</span> <span class="kc">None</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">product_to_delete</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">answer_callback_query</span><span class="p">(</span><span class="n">call</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s2">&quot;Товар не найден!&quot;</span><span class="p">)</span>
+                <span class="k">return</span>
+            <span class="n">product_name</span> <span class="o">=</span> <span class="n">product_to_delete</span><span class="o">.</span><span class="n">name</span>
+            <span class="n">product_to_delete</span><span class="o">.</span><span class="n">is_active</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="c1"># Деактивация товара в базе</span>
+            <span class="n">database</span><span class="o">.</span><span class="n">disactivateItem</span><span class="p">(</span><span class="n">product_id</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Deactivating product: </span><span class="si">{</span><span class="n">product_name</span><span class="si">}</span><span class="s2"> (ID: </span><span class="si">{</span><span class="n">product_id</span><span class="si">}</span><span class="s2">) by admin: </span><span class="si">{</span><span class="n">chat_id</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">edit_message_text</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Товар </span><span class="si">{</span><span class="n">product_name</span><span class="si">}</span><span class="s2"> удален!&quot;</span><span class="p">,</span> <span class="n">chat_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">confirmation_message_id</span>
+            <span class="p">)</span>  <span class="c1"># Редактируем сообщение с подтверждением</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">answer_callback_query</span><span class="p">(</span><span class="n">call</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s2">&quot;Товар удален!&quot;</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">message_id_to_delete</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">product_message_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">product_id</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">message_id_to_delete</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">answer_callback_query</span><span class="p">(</span>
+                        <span class="n">call</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s2">&quot;Сообщение с товаром не найдено!&quot;</span>
+                    <span class="p">)</span>
+                    <span class="k">return</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">delete_message</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="n">message_id_to_delete</span><span class="p">)</span>
+                <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">product_message_map</span><span class="p">[</span><span class="n">product_id</span><span class="p">]</span>
+            <span class="k">except</span> <span class="n">telebot</span><span class="o">.</span><span class="n">apihelper</span><span class="o">.</span><span class="n">ApiTelegramException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Ошибка при удалении сообщения: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;cancel_delete&quot;</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;handle_callback (cancel_delete) called for chat_id: </span><span class="si">{</span><span class="n">chat_id</span><span class="si">}</span><span class="s2">, state: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">chat_id</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">answer_callback_query</span><span class="p">(</span><span class="n">call</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s2">&quot;Удаление отменено&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">edit_message_text</span><span class="p">(</span>
+                <span class="s2">&quot;Удаление отменено&quot;</span><span class="p">,</span> <span class="n">chat_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">confirmation_message_id</span>
+            <span class="p">)</span>  <span class="c1"># Редактируем сообщение с подтверждением</span>
+        <span class="k">elif</span> <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;add&quot;</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;handle_callback (add) called for chat_id: </span><span class="si">{</span><span class="n">chat_id</span><span class="si">}</span><span class="s2">, state: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">chat_id</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="p">[</span><span class="n">chat_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>  <span class="c1"># Состояние добавления</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="s2">&quot;Введите название товара:&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">register_next_step_handler</span><span class="p">(</span><span class="n">call</span><span class="o">.</span><span class="n">message</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_add_product</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;catalog&quot;</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;handle_callback (catalog) called for chat_id: </span><span class="si">{</span><span class="n">chat_id</span><span class="si">}</span><span class="s2">, state: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">chat_id</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="s2">&quot;Обновляю каталог...&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">show_catalog</span><span class="p">(</span><span class="n">call</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;change_status&quot;</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;handle_callback (change_status) called for chat_id: </span><span class="si">{</span><span class="n">chat_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">order_id</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">order</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">find_order_by_id</span><span class="p">(</span><span class="n">order_id</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">order</span><span class="p">:</span>
+                <span class="n">text</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Вы хотите изменить статус заказа &lt;b&gt;</span><span class="si">{</span><span class="n">order_id</span><span class="si">}</span><span class="s2">&lt;/b&gt;</span><span class="se">\n</span><span class="s2">Текущий статус: &lt;b&gt;</span><span class="si">{</span><span class="n">order</span><span class="o">.</span><span class="n">status</span><span class="si">}</span><span class="s2">&lt;/b&gt;</span><span class="se">\n</span><span class="s2">Выберите новый статус:&quot;</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
+                    <span class="n">chat_id</span><span class="p">,</span>
+                    <span class="n">text</span><span class="p">,</span>
+                    <span class="n">parse_mode</span><span class="o">=</span><span class="s2">&quot;html&quot;</span><span class="p">,</span>
+                    <span class="n">reply_markup</span><span class="o">=</span><span class="n">keyboards</span><span class="o">.</span><span class="n">generate_status_keyboard</span><span class="p">(</span>
+                        <span class="n">OrderStatus</span><span class="p">,</span> <span class="n">order_id</span><span class="p">,</span> <span class="n">order</span><span class="o">.</span><span class="n">status</span>
+                    <span class="p">),</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">answer_callback_query</span><span class="p">(</span>
+                    <span class="n">call</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Заказ с ID </span><span class="si">{</span><span class="n">order_id</span><span class="si">}</span><span class="s2"> не найден&quot;</span><span class="p">,</span> <span class="n">show_alert</span><span class="o">=</span><span class="kc">True</span>
+                <span class="p">)</span></div>
+
+
+    <span class="c1"># Функции для работы с заказами</span>
+
+<div class="viewcode-block" id="AdminController.send_order_info">
+<a class="viewcode-back" href="../../controller.html#controller.admin_controller.AdminController.send_order_info">[документация]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">send_order_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span> <span class="n">chat_id</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Выводит в чат информацию о заказе</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">order_items</span> <span class="o">=</span> <span class="n">get_order_items</span><span class="p">(</span><span class="n">order</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">order_items</span><span class="p">:</span>
+            <span class="n">items_str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">item</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">order_items</span><span class="p">):</span>
+                <span class="n">product_name</span> <span class="o">=</span> <span class="n">escape</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>  <span class="c1"># экранируем от html атак</span>
+                <span class="n">product_price</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">price</span>
+                <span class="n">quantity</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">quantity</span>
+                <span class="n">total_item_price</span> <span class="o">=</span> <span class="n">product_price</span> <span class="o">*</span> <span class="n">quantity</span>
+                <span class="n">items_str</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">. &lt;b&gt;</span><span class="si">{</span><span class="n">product_name</span><span class="si">}</span><span class="s2">&lt;/b&gt;</span><span class="se">\n</span><span class="si">{</span><span class="n">product_price</span><span class="si">}</span><span class="s2"> ₽ x </span><span class="si">{</span><span class="n">quantity</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="n">total_item_price</span><span class="si">}</span><span class="s2"> ₽</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="n">text</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;Номер заказа: &lt;b&gt;</span><span class="si">{</span><span class="n">order</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">&lt;/b&gt;</span>
+<span class="s2">Статус: &lt;b&gt;</span><span class="si">{</span><span class="n">order</span><span class="o">.</span><span class="n">status</span><span class="si">}</span><span class="s2">&lt;/b&gt;</span>
+<span class="s2">Дата и время: </span><span class="si">{</span><span class="n">order</span><span class="o">.</span><span class="n">order_datetime</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%d</span><span class="s1">.%m.%y %H:%M&#39;</span><span class="p">)</span><span class="si">}</span>
+<span class="s2">Способ получения: &lt;b&gt;</span><span class="si">{</span><span class="n">order</span><span class="o">.</span><span class="n">delivery_type</span><span class="si">}</span><span class="s2">&lt;/b&gt;</span><span class="se">\n</span>
+<span class="s2">Состав заказа:</span>
+<span class="si">{</span><span class="n">items_str</span><span class="si">}</span>
+<span class="s2">Итого: </span><span class="si">{</span><span class="n">order</span><span class="o">.</span><span class="n">total_sum</span><span class="si">}</span><span class="s2"> ₽&quot;&quot;&quot;</span>
+            <span class="k">if</span> <span class="n">order</span><span class="o">.</span><span class="n">delivery_type</span> <span class="o">==</span> <span class="n">DeliveryType</span><span class="o">.</span><span class="n">DELIVERY</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
+                <span class="n">text</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n\n</span><span class="s2">Адрес доставки: </span><span class="si">{</span><span class="n">order</span><span class="o">.</span><span class="n">delivery_address</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">text</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n\n</span><span class="s2">Адрес пункта самовывоза: </span><span class="si">{</span><span class="n">order</span><span class="o">.</span><span class="n">delivery_address</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
+                <span class="n">chat_id</span><span class="p">,</span>
+                <span class="n">text</span><span class="p">,</span>
+                <span class="n">parse_mode</span><span class="o">=</span><span class="s2">&quot;html&quot;</span><span class="p">,</span>
+                <span class="n">reply_markup</span><span class="o">=</span><span class="n">keyboards</span><span class="o">.</span><span class="n">generate_change_status_keyboard</span><span class="p">(</span><span class="n">order</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">order_message_map</span><span class="p">[</span><span class="n">order</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">message_id</span></div>
+
+
+<div class="viewcode-block" id="AdminController.show_new_orders">
+<a class="viewcode-back" href="../../controller.html#controller.admin_controller.AdminController.show_new_orders">[документация]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">show_new_orders</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Вызывает отображение новых заказов в чате</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">chat_id</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">id</span>
+        <span class="n">new_orders</span> <span class="o">=</span> <span class="n">get_orders</span><span class="p">(</span><span class="n">status</span><span class="o">=</span><span class="n">OrderStatus</span><span class="o">.</span><span class="n">PROCESSING</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">new_orders</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">order</span> <span class="ow">in</span> <span class="n">new_orders</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">send_order_info</span><span class="p">(</span><span class="n">order</span><span class="p">,</span> <span class="n">chat_id</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="s2">&quot;Нет новых заказов&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AdminController.show_in_progress_orders">
+<a class="viewcode-back" href="../../controller.html#controller.admin_controller.AdminController.show_in_progress_orders">[документация]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">show_in_progress_orders</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Вызывает отображение  в чате заказов, принятых в работу</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">chat_id</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">all_orders</span> <span class="o">=</span> <span class="n">get_orders</span><span class="p">()</span>
+        <span class="n">in_progress_orders</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">order</span>
+            <span class="k">for</span> <span class="n">order</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">all_orders</span>
+            <span class="k">if</span> <span class="n">order</span><span class="o">.</span><span class="n">status</span>
+            <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="n">OrderStatus</span><span class="o">.</span><span class="n">PROCESSING</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">OrderStatus</span><span class="o">.</span><span class="n">RECEIVED</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="n">in_progress_orders</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">order</span> <span class="ow">in</span> <span class="n">in_progress_orders</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">send_order_info</span><span class="p">(</span><span class="n">order</span><span class="p">,</span> <span class="n">chat_id</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="s2">&quot;Нет заказов в работе&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AdminController.show_completed_orders">
+<a class="viewcode-back" href="../../controller.html#controller.admin_controller.AdminController.show_completed_orders">[документация]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">show_completed_orders</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Вызывает отображение выполненных заказов в чате</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">chat_id</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">id</span>
+        <span class="n">completed_orders</span> <span class="o">=</span> <span class="n">get_orders</span><span class="p">(</span><span class="n">status</span><span class="o">=</span><span class="n">OrderStatus</span><span class="o">.</span><span class="n">RECEIVED</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">completed_orders</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">order</span> <span class="ow">in</span> <span class="n">completed_orders</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">send_order_info</span><span class="p">(</span><span class="n">order</span><span class="p">,</span> <span class="n">chat_id</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="s2">&quot;Нет выполненных заказов&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AdminController.find_order_by_id">
+<a class="viewcode-back" href="../../controller.html#controller.admin_controller.AdminController.find_order_by_id">[документация]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">find_order_by_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">order_id</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Производит поиск заказа по его номеру</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">all_orders</span> <span class="o">=</span> <span class="n">get_orders</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">order</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">all_orders</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">order</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">order_id</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">order</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="AdminController.handle_change_status">
+<a class="viewcode-back" href="../../controller.html#controller.admin_controller.AdminController.handle_change_status">[документация]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">handle_change_status</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">call</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Изменяет статус заказа в чате и в базе</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">chat_id</span> <span class="o">=</span> <span class="n">call</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">id</span>
+        <span class="n">callback_data</span> <span class="o">=</span> <span class="n">call</span><span class="o">.</span><span class="n">data</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Callback query received: Chat ID: </span><span class="si">{</span><span class="n">chat_id</span><span class="si">}</span><span class="s2"> Callback Data: </span><span class="si">{</span><span class="n">callback_data</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;handle_change_status called for chat_id: </span><span class="si">{</span><span class="n">chat_id</span><span class="si">}</span><span class="s2">, state: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">user_states</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">chat_id</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">new_status_name</span><span class="p">,</span> <span class="n">order_id</span> <span class="o">=</span> <span class="n">call</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">:]</span>
+            <span class="n">new_status</span> <span class="o">=</span> <span class="n">OrderStatus</span><span class="p">[</span><span class="n">new_status_name</span><span class="p">]</span>
+            <span class="n">order</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">find_order_by_id</span><span class="p">(</span><span class="n">order_id</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">order</span><span class="p">:</span>
+                <span class="n">order</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">new_status</span><span class="o">.</span><span class="n">value</span>  <span class="c1"># Обновление статуса заказа</span>
+
+                <span class="c1"># вызов функции изменения статуса заказа</span>
+                <span class="n">database</span><span class="o">.</span><span class="n">change_status</span><span class="p">(</span><span class="n">order_id</span><span class="p">,</span> <span class="n">new_status</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Changing status of order </span><span class="si">{</span><span class="n">order_id</span><span class="si">}</span><span class="s2"> to </span><span class="si">{</span><span class="n">new_status</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2"> by admin: </span><span class="si">{</span><span class="n">chat_id</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
+                    <span class="n">chat_id</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Статус заказа </span><span class="si">{</span><span class="n">order_id</span><span class="si">}</span><span class="s2"> изменён на &#39;</span><span class="si">{</span><span class="n">new_status</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39;&quot;</span>
+                <span class="p">)</span>
+                <span class="n">user_id</span> <span class="o">=</span> <span class="n">order</span><span class="o">.</span><span class="n">customer_id</span>
+                <span class="k">if</span> <span class="n">user_id</span><span class="p">:</span>
+                    <span class="c1"># Отправляем уведомление пользователю</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
+                        <span class="n">user_id</span><span class="p">,</span>
+                        <span class="sa">f</span><span class="s2">&quot;Статус Вашего заказа </span><span class="si">{</span><span class="n">order_id</span><span class="si">}</span><span class="s2"> изменён на &#39;</span><span class="si">{</span><span class="n">new_status</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="n">message_id_to_delete</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">order_message_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                    <span class="n">order_id</span>
+                <span class="p">)</span>  <span class="c1"># Извлекаем message_id из словаря по order_id</span>
+                <span class="k">if</span> <span class="n">message_id_to_delete</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">delete_message</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="n">message_id_to_delete</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">delete_message</span><span class="p">(</span><span class="n">chat_id</span><span class="p">,</span> <span class="n">call</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">message_id</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Order with ID </span><span class="si">{</span><span class="n">order_id</span><span class="si">}</span><span class="s2"> not found for hanging status by admin: </span><span class="si">{</span><span class="n">chat_id</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">answer_callback_query</span><span class="p">(</span>
+                    <span class="n">call</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Заказ с ID </span><span class="si">{</span><span class="n">order_id</span><span class="si">}</span><span class="s2"> не найден&quot;</span><span class="p">,</span> <span class="n">show_alert</span><span class="o">=</span><span class="kc">True</span>
+                <span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">IndexError</span><span class="p">,</span> <span class="ne">KeyError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error handling callback while changing status: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bot</span><span class="o">.</span><span class="n">answer_callback_query</span><span class="p">(</span><span class="n">call</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Ошибка: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">show_alert</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">TG-BOT-ONLINE-SHOP</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Искать" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Навигация</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">tg-bot-online-shop</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Код модуля</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Dedevshin A, Ilyushin Y, Alekseev A.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

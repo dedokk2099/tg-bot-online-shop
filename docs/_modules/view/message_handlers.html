@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+
+<html lang="ru" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>view.message_handlers &#8212; документация TG-BOT-ONLINE-SHOP 1.0</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=9ca2116e"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/translations.js?v=5b699b7f"></script>
+    <link rel="index" title="Алфавитный указатель" href="../../genindex.html" />
+    <link rel="search" title="Поиск" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Исходный код view.message_handlers</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">controller.role_switcher</span><span class="w"> </span><span class="kn">import</span> <span class="n">RoleSwitcher</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">view.bot</span><span class="w"> </span><span class="kn">import</span> <span class="n">bot</span>
+
+<span class="n">role_switcher_</span> <span class="o">=</span> <span class="n">RoleSwitcher</span><span class="p">(</span><span class="n">bot</span><span class="p">)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Объект для переключения между ролями (админ/пользователь).</span>
+
+<span class="sd">Используется для определения, какой контроллер (административный или пользовательский)</span>
+<span class="sd">должен обрабатывать входящие сообщения.</span>
+
+<span class="sd">:type: view.role_switcher.RoleSwitcher</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+
+<div class="viewcode-block" id="handle_admin_catalog">
+<a class="viewcode-back" href="../../view.html#view.message_handlers.handle_admin_catalog">[документация]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">handle_admin_catalog</span><span class="p">(</span><span class="n">message</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Вызывает функцию отображения каталога администратору</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">role_switcher_</span><span class="o">.</span><span class="n">admin_controller_</span><span class="o">.</span><span class="n">show_catalog</span><span class="p">(</span><span class="n">message</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="handle_new_orders">
+<a class="viewcode-back" href="../../view.html#view.message_handlers.handle_new_orders">[документация]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">handle_new_orders</span><span class="p">(</span><span class="n">message</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Вызывает функцию отображения новых заказов администратору</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">message</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="s2">&quot;Список новых заказов:&quot;</span><span class="p">)</span>
+    <span class="n">role_switcher_</span><span class="o">.</span><span class="n">admin_controller_</span><span class="o">.</span><span class="n">show_new_orders</span><span class="p">(</span><span class="n">message</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="handle_in_progress">
+<a class="viewcode-back" href="../../view.html#view.message_handlers.handle_in_progress">[документация]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">handle_in_progress</span><span class="p">(</span><span class="n">message</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Вызывает функцию отображения заказов в работе</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">message</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="s2">&quot;Список заказов в работе:&quot;</span><span class="p">)</span>
+    <span class="n">role_switcher_</span><span class="o">.</span><span class="n">admin_controller_</span><span class="o">.</span><span class="n">show_in_progress_orders</span><span class="p">(</span><span class="n">message</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="handle_admin_history">
+<a class="viewcode-back" href="../../view.html#view.message_handlers.handle_admin_history">[документация]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">handle_admin_history</span><span class="p">(</span><span class="n">message</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Вызывает функцию отображения выполненных заказов администратору</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">message</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="s2">&quot;Список выполненных заказов:&quot;</span><span class="p">)</span>
+    <span class="n">role_switcher_</span><span class="o">.</span><span class="n">admin_controller_</span><span class="o">.</span><span class="n">show_completed_orders</span><span class="p">(</span><span class="n">message</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="handle_user_catalog">
+<a class="viewcode-back" href="../../view.html#view.message_handlers.handle_user_catalog">[документация]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">handle_user_catalog</span><span class="p">(</span><span class="n">message</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Вызывает функцию отображения каталога пользователю</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">role_switcher_</span><span class="o">.</span><span class="n">user_controller_</span><span class="o">.</span><span class="n">show_catalog</span><span class="p">(</span><span class="n">message</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="handle_cart">
+<a class="viewcode-back" href="../../view.html#view.message_handlers.handle_cart">[документация]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">handle_cart</span><span class="p">(</span><span class="n">message</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Вызывает функцию отображения корзины</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">role_switcher_</span><span class="o">.</span><span class="n">user_controller_</span><span class="o">.</span><span class="n">show_cart</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">call</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="handle_open_orders">
+<a class="viewcode-back" href="../../view.html#view.message_handlers.handle_open_orders">[документация]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">handle_open_orders</span><span class="p">(</span><span class="n">message</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Вызывает функцию отображения открытых заказов пользователю</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">role_switcher_</span><span class="o">.</span><span class="n">user_controller_</span><span class="o">.</span><span class="n">show_open_orders</span><span class="p">(</span><span class="n">message</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="handle_user_history">
+<a class="viewcode-back" href="../../view.html#view.message_handlers.handle_user_history">[документация]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">handle_user_history</span><span class="p">(</span><span class="n">message</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Вызывает функцию отображения полученных заказов пользователю</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">role_switcher_</span><span class="o">.</span><span class="n">user_controller_</span><span class="o">.</span><span class="n">show_received_orders</span><span class="p">(</span><span class="n">message</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="handle_start">
+<a class="viewcode-back" href="../../view.html#view.message_handlers.handle_start">[документация]</a>
+<span class="nd">@bot</span><span class="o">.</span><span class="n">message_handler</span><span class="p">(</span><span class="n">commands</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;start&quot;</span><span class="p">])</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">handle_start</span><span class="p">(</span><span class="n">message</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Обрабатывает команду /start.</span>
+
+<span class="sd">    Регистрирует пользователя в системе через RoleSwitcher.</span>
+
+<span class="sd">    :param message: Объект входящего сообщения Telegram</span>
+<span class="sd">    :type message: telebot.types.Message</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">role_switcher_</span><span class="o">.</span><span class="n">register_user</span><span class="p">(</span><span class="n">message</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="handle_admin">
+<a class="viewcode-back" href="../../view.html#view.message_handlers.handle_admin">[документация]</a>
+<span class="nd">@bot</span><span class="o">.</span><span class="n">message_handler</span><span class="p">(</span><span class="n">commands</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;admin&quot;</span><span class="p">])</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">handle_admin</span><span class="p">(</span><span class="n">message</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Обрабатывает команду /admin.</span>
+
+<span class="sd">    Переключает пользователя в режим администратора через RoleSwitcher.</span>
+
+<span class="sd">    :param message: Объект входящего сообщения Telegram</span>
+<span class="sd">    :type message: telebot.types.Message</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">role_switcher_</span><span class="o">.</span><span class="n">choose_admin</span><span class="p">(</span><span class="n">message</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="handle_user">
+<a class="viewcode-back" href="../../view.html#view.message_handlers.handle_user">[документация]</a>
+<span class="nd">@bot</span><span class="o">.</span><span class="n">message_handler</span><span class="p">(</span><span class="n">commands</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;user&quot;</span><span class="p">])</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">handle_user</span><span class="p">(</span><span class="n">message</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Обрабатывает команду /user.</span>
+
+<span class="sd">    Переключает пользователя в режим пользователя через RoleSwitcher.</span>
+
+<span class="sd">    :param message: Объект входящего сообщения Telegram</span>
+<span class="sd">    :type message: telebot.types.Message</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">role_switcher_</span><span class="o">.</span><span class="n">choose_user</span><span class="p">(</span><span class="n">message</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="handle_photo">
+<a class="viewcode-back" href="../../view.html#view.message_handlers.handle_photo">[документация]</a>
+<span class="nd">@bot</span><span class="o">.</span><span class="n">message_handler</span><span class="p">(</span><span class="n">content_types</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;photo&quot;</span><span class="p">])</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">handle_photo</span><span class="p">(</span><span class="n">message</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Обрабатывает загрузку фото.</span>
+
+<span class="sd">    Передает запрос на обработку фото административному контроллеру.</span>
+
+<span class="sd">    :param message: Объект входящего сообщения Telegram</span>
+<span class="sd">    :type message: telebot.types.Message</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">role_switcher_</span><span class="o">.</span><span class="n">admin_controller_</span><span class="o">.</span><span class="n">handle_photo_upload</span><span class="p">(</span><span class="n">message</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="handle__admin_menu">
+<a class="viewcode-back" href="../../view.html#view.message_handlers.handle__admin_menu">[документация]</a>
+<span class="nd">@bot</span><span class="o">.</span><span class="n">message_handler</span><span class="p">(</span>
+    <span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">message</span><span class="p">:</span> <span class="n">message</span><span class="o">.</span><span class="n">text</span>
+    <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;Каталог&quot;</span><span class="p">,</span> <span class="s2">&quot;Новые заказы&quot;</span><span class="p">,</span> <span class="s2">&quot;В работе&quot;</span><span class="p">,</span> <span class="s2">&quot;История&quot;</span><span class="p">]</span>
+<span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">handle__admin_menu</span><span class="p">(</span><span class="n">message</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Обрабатывает сообщения с командами админ-меню.</span>
+
+<span class="sd">    Вызывает соответствующие обработчики для запрошенной команды</span>
+<span class="sd">    если пользователь является админом.</span>
+
+<span class="sd">    :param message: Объект входящего сообщения Telegram</span>
+<span class="sd">    :type message: telebot.types.Message</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">chat_id</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">id</span>
+    <span class="k">if</span> <span class="n">role_switcher_</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">is_admin</span><span class="p">(</span><span class="n">chat_id</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">message</span><span class="o">.</span><span class="n">text</span> <span class="o">==</span> <span class="s2">&quot;Каталог&quot;</span><span class="p">:</span>
+            <span class="n">handle_admin_catalog</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">message</span><span class="o">.</span><span class="n">text</span> <span class="o">==</span> <span class="s2">&quot;Новые заказы&quot;</span><span class="p">:</span>
+            <span class="n">handle_new_orders</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">message</span><span class="o">.</span><span class="n">text</span> <span class="o">==</span> <span class="s2">&quot;В работе&quot;</span><span class="p">:</span>
+            <span class="n">handle_in_progress</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">message</span><span class="o">.</span><span class="n">text</span> <span class="o">==</span> <span class="s2">&quot;История&quot;</span><span class="p">:</span>
+            <span class="n">handle_admin_history</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">message</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="s2">&quot;Неизвестная команда&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="handle_user_menu">
+<a class="viewcode-back" href="../../view.html#view.message_handlers.handle_user_menu">[документация]</a>
+<span class="nd">@bot</span><span class="o">.</span><span class="n">message_handler</span><span class="p">(</span>
+    <span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">message</span><span class="p">:</span> <span class="n">message</span><span class="o">.</span><span class="n">text</span>
+    <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;Товары&quot;</span><span class="p">,</span> <span class="s2">&quot;Корзина&quot;</span><span class="p">,</span> <span class="s2">&quot;Открытые заказы&quot;</span><span class="p">,</span> <span class="s2">&quot;История заказов&quot;</span><span class="p">]</span>
+<span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">handle_user_menu</span><span class="p">(</span><span class="n">message</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Обрабатывает сообщения с командами пользовательского меню.</span>
+
+<span class="sd">    Вызывает соответствующие обработчики для запрошенной команды.</span>
+
+<span class="sd">    :param message: Объект входящего сообщения Telegram</span>
+<span class="sd">    :type message: telebot.types.Message</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">message</span><span class="o">.</span><span class="n">text</span> <span class="o">==</span> <span class="s2">&quot;Товары&quot;</span><span class="p">:</span>
+        <span class="n">handle_user_catalog</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">message</span><span class="o">.</span><span class="n">text</span> <span class="o">==</span> <span class="s2">&quot;Корзина&quot;</span><span class="p">:</span>
+        <span class="n">handle_cart</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">message</span><span class="o">.</span><span class="n">text</span> <span class="o">==</span> <span class="s2">&quot;Открытые заказы&quot;</span><span class="p">:</span>
+        <span class="n">handle_open_orders</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">message</span><span class="o">.</span><span class="n">text</span> <span class="o">==</span> <span class="s2">&quot;История заказов&quot;</span><span class="p">:</span>
+        <span class="n">handle_user_history</span><span class="p">(</span><span class="n">message</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="handle_unknown">
+<a class="viewcode-back" href="../../view.html#view.message_handlers.handle_unknown">[документация]</a>
+<span class="nd">@bot</span><span class="o">.</span><span class="n">message_handler</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">message</span><span class="p">:</span> <span class="kc">True</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">handle_unknown</span><span class="p">(</span><span class="n">message</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Обрабатывает неизвестные текстовые сообщения.</span>
+
+<span class="sd">    Отправляет сообщение &quot;Неизвестная команда&quot; в чат пользователя.</span>
+
+<span class="sd">    :param message: Объект входящего сообщения Telegram</span>
+<span class="sd">    :type message: telebot.types.Message</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bot</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span><span class="n">message</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="s2">&quot;Неизвестная команда&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="handle_status_callback">
+<a class="viewcode-back" href="../../view.html#view.message_handlers.handle_status_callback">[документация]</a>
+<span class="nd">@bot</span><span class="o">.</span><span class="n">callback_query_handler</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">call</span><span class="p">:</span> <span class="n">call</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;status&quot;</span><span class="p">))</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">handle_status_callback</span><span class="p">(</span><span class="n">call</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Обрабатывает callback-запросы, связанные со статусом заказа (админ).</span>
+
+<span class="sd">    Передает callback-запрос административному контроллеру для</span>
+<span class="sd">    обработки изменения статуса.</span>
+
+<span class="sd">    :param call: Объект callback-запроса Telegram</span>
+<span class="sd">    :type call: telebot.types.CallbackQuery</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">role_switcher_</span><span class="o">.</span><span class="n">admin_controller_</span><span class="o">.</span><span class="n">handle_change_status</span><span class="p">(</span><span class="n">call</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="handle_user_callback">
+<a class="viewcode-back" href="../../view.html#view.message_handlers.handle_user_callback">[документация]</a>
+<span class="nd">@bot</span><span class="o">.</span><span class="n">callback_query_handler</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">call</span><span class="p">:</span> <span class="n">call</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;user&quot;</span><span class="p">))</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">handle_user_callback</span><span class="p">(</span><span class="n">call</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Обрабатывает callback-запросы, связанные с пользователем.</span>
+
+<span class="sd">    Передает callback-запрос пользовательскому контроллеру для обработки</span>
+<span class="sd">    операций, связанных с пользователем.</span>
+
+<span class="sd">    :param call: Объект callback-запроса Telegram</span>
+<span class="sd">    :type call: telebot.types.CallbackQuery</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">role_switcher_</span><span class="o">.</span><span class="n">user_controller_</span><span class="o">.</span><span class="n">handle_callback</span><span class="p">(</span><span class="n">call</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="handle_cart_callback">
+<a class="viewcode-back" href="../../view.html#view.message_handlers.handle_cart_callback">[документация]</a>
+<span class="nd">@bot</span><span class="o">.</span><span class="n">callback_query_handler</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">call</span><span class="p">:</span> <span class="n">call</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;cart&quot;</span><span class="p">))</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">handle_cart_callback</span><span class="p">(</span><span class="n">call</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Обрабатывает callback-запросы, связанные с корзиной пользователя.</span>
+
+<span class="sd">    Передает callback-запрос пользовательскому контроллеру для обработки</span>
+<span class="sd">    операций, связанных с корзиной.</span>
+
+<span class="sd">    :param call: Объект callback-запроса Telegram</span>
+<span class="sd">    :type call: telebot.types.CallbackQuery</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">role_switcher_</span><span class="o">.</span><span class="n">user_controller_</span><span class="o">.</span><span class="n">handle_cart_callback</span><span class="p">(</span><span class="n">call</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="handle_delivery_callback">
+<a class="viewcode-back" href="../../view.html#view.message_handlers.handle_delivery_callback">[документация]</a>
+<span class="nd">@bot</span><span class="o">.</span><span class="n">callback_query_handler</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">call</span><span class="p">:</span> <span class="n">call</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;delivery&quot;</span><span class="p">))</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">handle_delivery_callback</span><span class="p">(</span><span class="n">call</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Обрабатывает callback-запросы, связанные с выбором типа доставки.</span>
+
+<span class="sd">    Передает callback-запрос пользовательскому контроллеру для обработки</span>
+<span class="sd">    выбора типа доставки.</span>
+
+<span class="sd">    :param call: Объект callback-запроса Telegram</span>
+<span class="sd">    :type call: telebot.types.CallbackQuery</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">role_switcher_</span><span class="o">.</span><span class="n">user_controller_</span><span class="o">.</span><span class="n">handle_delivery_callback</span><span class="p">(</span><span class="n">call</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="handle_payment_callback">
+<a class="viewcode-back" href="../../view.html#view.message_handlers.handle_payment_callback">[документация]</a>
+<span class="nd">@bot</span><span class="o">.</span><span class="n">callback_query_handler</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">call</span><span class="p">:</span> <span class="n">call</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;payment&quot;</span><span class="p">))</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">handle_payment_callback</span><span class="p">(</span><span class="n">call</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">     Обрабатывает callback-запросы, связанные с выбором способа оплаты.</span>
+<span class="sd">     Передает callback-запрос пользовательскому контроллеру для обработки выбора способа оплаты.</span>
+
+<span class="sd">    :param call: Объект callback-запроса Telegram</span>
+<span class="sd">    :type call: telebot.types.CallbackQuery</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">role_switcher_</span><span class="o">.</span><span class="n">user_controller_</span><span class="o">.</span><span class="n">handle_payment_callback</span><span class="p">(</span><span class="n">call</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="handle_pickup_point_callback">
+<a class="viewcode-back" href="../../view.html#view.message_handlers.handle_pickup_point_callback">[документация]</a>
+<span class="nd">@bot</span><span class="o">.</span><span class="n">callback_query_handler</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">call</span><span class="p">:</span> <span class="n">call</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;pickup_point&quot;</span><span class="p">))</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">handle_pickup_point_callback</span><span class="p">(</span><span class="n">call</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">     Обрабатывает callback-запросы, связанные с выбором пункта самовывоза.</span>
+<span class="sd">     Передает callback-запрос пользовательскому контроллеру для обработки выбора пункта самовывоза.</span>
+
+<span class="sd">    :param call: Объект callback-запроса Telegram</span>
+<span class="sd">    :type call: telebot.types.CallbackQuery</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">role_switcher_</span><span class="o">.</span><span class="n">user_controller_</span><span class="o">.</span><span class="n">handle_pickup_point_callback</span><span class="p">(</span><span class="n">call</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="handle_watch_products_callback">
+<a class="viewcode-back" href="../../view.html#view.message_handlers.handle_watch_products_callback">[документация]</a>
+<span class="nd">@bot</span><span class="o">.</span><span class="n">callback_query_handler</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">call</span><span class="p">:</span> <span class="n">call</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;watch&quot;</span><span class="p">))</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">handle_watch_products_callback</span><span class="p">(</span><span class="n">call</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Обрабатывает callback-запросы для просмотра товаров в заказе.</span>
+<span class="sd">    Передает callback-запрос пользовательскому контроллеру для</span>
+<span class="sd">    обработки запроса на просмотр товаров в заказе.</span>
+
+<span class="sd">    :param call: Объект callback-запроса Telegram</span>
+<span class="sd">    :type call: telebot.types.CallbackQuery</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">role_switcher_</span><span class="o">.</span><span class="n">user_controller_</span><span class="o">.</span><span class="n">handle_watch_products_callback</span><span class="p">(</span><span class="n">call</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="handle_callback_query">
+<a class="viewcode-back" href="../../view.html#view.message_handlers.handle_callback_query">[документация]</a>
+<span class="nd">@bot</span><span class="o">.</span><span class="n">callback_query_handler</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">call</span><span class="p">:</span> <span class="kc">True</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">handle_callback_query</span><span class="p">(</span><span class="n">call</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Обрабатывает callback-запросы, не связанные с пользовательскими действиями.</span>
+<span class="sd">    Передает callback-запрос административному контроллеру для обработки</span>
+<span class="sd">    непосредственно им.</span>
+
+<span class="sd">    :param call: Объект callback-запроса Telegram</span>
+<span class="sd">    :type call: telebot.types.CallbackQuery</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">role_switcher_</span><span class="o">.</span><span class="n">admin_controller_</span><span class="o">.</span><span class="n">handle_callback</span><span class="p">(</span><span class="n">call</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="checkout_payment_query">
+<a class="viewcode-back" href="../../view.html#view.message_handlers.checkout_payment_query">[документация]</a>
+<span class="nd">@bot</span><span class="o">.</span><span class="n">pre_checkout_query_handler</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">query</span><span class="p">:</span> <span class="kc">True</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">checkout_payment_query</span><span class="p">(</span><span class="n">query</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Обрабатывает запрос подтверждения перед оплатой.</span>
+
+<span class="sd">    Передает запрос пользовательскому контроллеру для обработки</span>
+<span class="sd">    подтверждения оплаты.</span>
+
+<span class="sd">    :param query: Объект запроса Telegram</span>
+<span class="sd">    :type query: telebot.types.PreCheckoutQuery</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">role_switcher_</span><span class="o">.</span><span class="n">user_controller_</span><span class="o">.</span><span class="n">checkout_payment</span><span class="p">(</span><span class="n">query</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="handle_got_payment">
+<a class="viewcode-back" href="../../view.html#view.message_handlers.handle_got_payment">[документация]</a>
+<span class="nd">@bot</span><span class="o">.</span><span class="n">message_handler</span><span class="p">(</span><span class="n">content_types</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;successful_payment&quot;</span><span class="p">])</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">handle_got_payment</span><span class="p">(</span><span class="n">message</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Обрабатывает подтверждение успешной оплаты.</span>
+
+<span class="sd">    Передает сообщение пользовательскому контроллеру для обработки</span>
+<span class="sd">    успешной оплаты.</span>
+
+<span class="sd">    :param message: Объект входящего сообщения Telegram</span>
+<span class="sd">    :type message: telebot.types.Message</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">role_switcher_</span><span class="o">.</span><span class="n">user_controller_</span><span class="o">.</span><span class="n">got_payment</span><span class="p">(</span><span class="n">message</span><span class="p">)</span></div>
+
+
+
+<span class="c1"># @bot.message_handler(commands=[&#39;start&#39;])</span>
+<span class="c1"># def handle_start(message):</span>
+<span class="c1">#     role_switcher_.register_user(message)</span>
+
+<span class="c1"># @bot.message_handler(commands=[&#39;admin&#39;])</span>
+<span class="c1"># def handle_admin(message):</span>
+<span class="c1">#     role_switcher_.choose_admin(message)</span>
+
+<span class="c1"># @bot.message_handler(commands=[&#39;user&#39;])</span>
+<span class="c1"># def handle_user(message):</span>
+<span class="c1">#     role_switcher_.choose_user(message)</span>
+
+<span class="c1"># @bot.message_handler(content_types=[&#39;photo&#39;])</span>
+<span class="c1"># def handle_photo(message):</span>
+<span class="c1">#     role_switcher_.admin_controller_.handle_photo_upload(message)</span>
+
+<span class="c1"># @bot.message_handler(func=lambda message: message.text in [&quot;Каталог&quot;, &quot;Новые заказы&quot;, &quot;В работе&quot;, &quot;История&quot;])</span>
+<span class="c1"># def handle__admin_menu(message):</span>
+<span class="c1">#     chat_id = message.chat.id</span>
+<span class="c1">#     if role_switcher_.user.is_admin(chat_id):</span>
+<span class="c1">#         if message.text == &quot;Каталог&quot;:</span>
+<span class="c1">#             handle_admin_catalog(message)</span>
+<span class="c1">#         elif message.text == &quot;Новые заказы&quot;:</span>
+<span class="c1">#             handle_new_orders(message)</span>
+<span class="c1">#         elif message.text == &quot;В работе&quot;:</span>
+<span class="c1">#             handle_in_progress(message)</span>
+<span class="c1">#         elif message.text == &quot;История&quot;:</span>
+<span class="c1">#             handle_admin_history(message)</span>
+<span class="c1">#     else:</span>
+<span class="c1">#         bot.send_message(message.chat.id, &quot;Неизвестная команда&quot;)</span>
+
+<span class="c1"># @bot.message_handler(func=lambda message: message.text in [&quot;Товары&quot;, &quot;Корзина&quot;, &quot;Открытые заказы&quot;, &quot;История заказов&quot;])</span>
+<span class="c1"># def handle_user_menu(message):</span>
+<span class="c1">#     if message.text == &quot;Товары&quot;:</span>
+<span class="c1">#         handle_user_catalog(message)</span>
+<span class="c1">#     elif message.text == &quot;Корзина&quot;:</span>
+<span class="c1">#         handle_cart(message)</span>
+<span class="c1">#     elif message.text == &quot;Открытые заказы&quot;:</span>
+<span class="c1">#         handle_open_orders(message)</span>
+<span class="c1">#     elif message.text == &quot;История заказов&quot;:</span>
+<span class="c1">#         handle_user_history(message)</span>
+
+<span class="c1"># @bot.message_handler(func=lambda message: True)</span>
+<span class="c1"># def handle_unknown(message):</span>
+<span class="c1">#     bot.send_message(message.chat.id, &quot;Неизвестная команда&quot;)</span>
+
+
+<span class="c1"># @bot.callback_query_handler(func=lambda call: call.data.startswith(&quot;status&quot;))</span>
+<span class="c1"># def handle_status_callback(call):</span>
+<span class="c1">#     role_switcher_.admin_controller_.handle_change_status(call)</span>
+
+<span class="c1"># @bot.callback_query_handler(func=lambda call: call.data.startswith(&quot;user&quot;))</span>
+<span class="c1"># def handle_user_callback(call):</span>
+<span class="c1">#     role_switcher_.user_controller_.handle_callback(call)</span>
+
+<span class="c1"># @bot.callback_query_handler(func=lambda call: call.data.startswith(&quot;cart&quot;))</span>
+<span class="c1"># def handle_cart_callback(call):</span>
+<span class="c1">#     role_switcher_.user_controller_.handle_cart_callback(call)</span>
+
+<span class="c1"># @bot.callback_query_handler(func=lambda call: call.data.startswith(&quot;delivery&quot;))</span>
+<span class="c1"># def handle_delivery_callback(call):</span>
+<span class="c1">#     role_switcher_.user_controller_.handle_delivery_callback(call)</span>
+
+<span class="c1"># @bot.callback_query_handler(func=lambda call: call.data.startswith(&quot;payment&quot;))</span>
+<span class="c1"># def handle_payment_callback(call):</span>
+<span class="c1">#     role_switcher_.user_controller_.handle_payment_callback(call)</span>
+
+<span class="c1"># @bot.callback_query_handler(func=lambda call: call.data.startswith(&quot;pickup_point&quot;))</span>
+<span class="c1"># def handle_pickup_point_callback(call):</span>
+<span class="c1">#     role_switcher_.user_controller_.handle_pickup_point_callback(call)</span>
+
+<span class="c1"># @bot.callback_query_handler(func=lambda call: call.data.startswith(&quot;watch&quot;))</span>
+<span class="c1"># def handle_watch_products_callback(call):</span>
+<span class="c1">#     role_switcher_.user_controller_.handle_watch_products_callback(call)</span>
+
+<span class="c1"># @bot.callback_query_handler(func=lambda call: True)</span>
+<span class="c1"># def handle_callback_query(call):</span>
+<span class="c1">#     role_switcher_.admin_controller_.handle_callback(call)</span>
+
+
+<span class="c1"># @bot.pre_checkout_query_handler(func=lambda query: True)</span>
+<span class="c1"># def checkout_payment_query(query):</span>
+<span class="c1">#     role_switcher_.user_controller_.checkout_payment(query)</span>
+
+<span class="c1"># @bot.message_handler(content_types=[&#39;successful_payment&#39;])</span>
+<span class="c1"># def handle_got_payment(message):</span>
+<span class="c1">#     role_switcher_.user_controller_.got_payment(message)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">TG-BOT-ONLINE-SHOP</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Искать" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Навигация</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">tg-bot-online-shop</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Код модуля</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Dedevshin A, Ilyushin Y, Alekseev A.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
